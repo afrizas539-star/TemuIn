@@ -138,6 +138,48 @@ export interface APIDataResponseDTO {
   updatedAt?: string;
 }
 
+/**
+ * LoginRequestDTO — Payload untuk POST /login & POST /api/login
+ */
+export interface LoginRequestDTO {
+  email: string;
+  password: string;
+  identifier?: string;
+}
+
+/**
+ * LoginResponseDTO — Response dari POST /login (JWT access token)
+ */
+export interface LoginResponseDTO {
+  success: boolean;
+  access_token: string;
+  token_type?: string;
+  expires_in?: number;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: 'student' | 'admin';
+    phone?: string;
+    nim?: string;
+    faculty?: string;
+    photo?: string;
+  };
+  error?: string;
+  message?: string;
+}
+
+/**
+ * ProgramDTO — Bentuk data program / info pengembalian dari GET /api/programs
+ */
+export interface ProgramDTO {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  status: string;
+}
+
 // ─────────────────────────────────────────────────────────
 // 2. MAPPER / TRANSFORMER FUNCTIONS — DTO → Application Model
 // ─────────────────────────────────────────────────────────

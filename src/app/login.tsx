@@ -33,6 +33,7 @@ export default function LoginScreen() {
   const {
     isAuthenticated,
     role,
+    login,
     loginAsStudent,
     loginAsAdmin,
     adminProfile,
@@ -58,9 +59,7 @@ export default function LoginScreen() {
   }, [isAuthenticated, role, isLoadingAuth]);
 
   /**
-   * Fungsi login tunggal — auto-deteksi role berdasarkan email
-   * Admin dikenal dari email yang cocok dengan akun admin
-   * Semua selain itu diperlakukan sebagai mahasiswa
+   * Fungsi login tunggal — menggunakan JWT REST API via apiService & AuthContext
    */
   const handleLogin = async () => {
     setErrorMessage('');
@@ -79,29 +78,15 @@ export default function LoginScreen() {
     try {
       setIsSubmitting(true);
 
-      // Tentukan role berdasarkan email — admin jika cocok dengan akun admin
-      const adminEmail = adminProfile.email.trim().toLowerCase();
-      const isAdminLogin =
-        trimmedId.toLowerCase() === adminEmail ||
-        trimmedId.toLowerCase() === 'admin.kampus@gmail.com';
-
-      let res;
-      if (isAdminLogin) {
-        // Login sebagai admin
-        res = await loginAsAdmin(trimmedId, password);
-        if (res.success) {
+      const res = await login(trimmedId, password);
+      if (res.success) {
+        if (res.role === 'admin') {
           router.replace('/admin/dashboard');
         } else {
-          setErrorMessage(res.message || 'Login gagal. Periksa kembali email dan password.');
+          router.replace('/home');
         }
       } else {
-        // Login sebagai mahasiswa (NIM atau email mahasiswa)
-        res = await loginAsStudent(trimmedId, password);
-        if (res.success) {
-          router.replace('/home');
-        } else {
-          setErrorMessage(res.message || 'Login gagal. Periksa kembali NIM/Email dan password.');
-        }
+        setErrorMessage(res.message || 'Login gagal. Periksa kembali email/NIM dan password.');
       }
     } catch {
       setErrorMessage('Terjadi gangguan sistem. Silakan coba kembali.');

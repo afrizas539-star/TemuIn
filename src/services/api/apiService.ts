@@ -1,20 +1,26 @@
 /**
  * ============================================================
- * PEKAN 4 — TASK 02: API SERVICE (REST API Client)
+ * SPRINT 04 / PEKAN 5: TOKEN-BASED AUTH & SECURE API SERVICE
  * ============================================================
  *
- * Menggunakan `fetch()` bawaan JavaScript untuk HTTP Request.
- * Mendukung:
- *   - GET  /api/health       → Cek koneksi server
- *   - GET  /api/items         → Ambil daftar barang (CampusItem[])
- *   - GET  /api/claims        → Ambil daftar klaim (ClaimRequest[])
- *   - GET  /api/data          → Ambil seluruh data (items + claims)
- *   - POST /api/sync          → Sinkronisasi data ke server
- *   - GET  /api/items/:id     → Ambil detail satu barang
+ * Menggunakan `fetch()` bawaan JavaScript dengan Expo SecureStore
+ * untuk mengamankan komunikasi RESTful API dengan JWT Token:
+ *   - POST /login atau /api/login → Autentikasi & Pengambilan JWT Token
+ *   - GET  /api/health            → Cek koneksi server (Public)
+ *   - GET  /api/items             → Ambil daftar barang (Protected)
+ *   - GET  /api/claims            → Ambil daftar klaim (Protected)
+ *   - GET  /api/programs          → Ambil daftar program kampus (Protected)
+ *   - GET  /api/data              → Ambil seluruh data (Protected)
+ *   - POST /api/sync              → Sinkronisasi data ke server (Protected)
+ *   - GET  /api/items/:id         → Ambil detail satu barang (Protected)
  *
- * Error handling: HTTP status code, timeout, network error.
+ * Setiap request ke protected endpoint otomatis menyertakan:
+ *   Authorization: Bearer <token>
+ *
+ * Status 401 Unauthorized akan mereset token & memicu re-login.
  */
 
+import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 import {
@@ -23,17 +29,23 @@ import {
   APISyncResponseDTO,
   CampusItemDTO,
   ClaimRequestDTO,
+  LoginRequestDTO,
+  LoginResponseDTO,
+  ProgramDTO,
   mapAPIDataResponseToModels,
   mapCampusItemDTOToModel,
   mapCampusItemsDTOToModels,
   mapClaimRequestsDTOToModels,
 } from './dto';
 
+import { secureStorage } from '@/services/storage/secureStorage';
 import { CampusItem, ClaimRequest } from '@/types';
 
 // ─────────────────────────────────────────────────────────
-// KONFIGURASI API
+// KONFIGURASI API & SECURE STORE KEYS
 // ─────────────────────────────────────────────────────────
+
+export const SECURE_KEY_ACCESS_TOKEN = 'access_token';
 
 /**
  * Base URL default untuk backend server lokal.
@@ -49,6 +61,57 @@ const DEFAULT_TIMEOUT_MS = 5000;
 
 /** Timeout untuk health check (lebih pendek) */
 const HEALTH_CHECK_TIMEOUT_MS = 2500;
+
+// ─────────────────────────────────────────────────────────
+// HELPER AMAN UNTUK SECURESTORE (Dengan Web Fallback)
+// ─────────────────────────────────────────────────────────
+
+/**
+ * Membaca token secara aman dari SecureStore
+ */
+async function getStoredAccessToken(): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    return await secureStorage.getItem(SECURE_KEY_ACCESS_TOKEN);
+  }
+  try {
+    return await SecureStore.getItemAsync(SECURE_KEY_ACCESS_TOKEN);
+  } catch (err) {
+    console.warn('[SecureStore] Gagal membaca access_token:', err);
+    return await secureStorage.getItem(SECURE_KEY_ACCESS_TOKEN);
+  }
+}
+
+/**
+ * Menyimpan token secara aman di SecureStore
+ */
+async function saveStoredAccessToken(token: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    await secureStorage.setItem(SECURE_KEY_ACCESS_TOKEN, token);
+  } else {
+    try {
+      await SecureStore.setItemAsync(SECURE_KEY_ACCESS_TOKEN, token);
+    } catch (err) {
+      console.warn('[SecureStore] Gagal menyimpan access_token:', err);
+    }
+    await secureStorage.setItem(SECURE_KEY_ACCESS_TOKEN, token);
+  }
+}
+
+/**
+ * Menghapus token dari SecureStore
+ */
+async function deleteStoredAccessToken(): Promise<void> {
+  if (Platform.OS === 'web') {
+    await secureStorage.removeItem(SECURE_KEY_ACCESS_TOKEN);
+  } else {
+    try {
+      await SecureStore.deleteItemAsync(SECURE_KEY_ACCESS_TOKEN);
+    } catch (err) {
+      console.warn('[SecureStore] Gagal menghapus access_token:', err);
+    }
+    await secureStorage.removeItem(SECURE_KEY_ACCESS_TOKEN);
+  }
+}
 
 // ─────────────────────────────────────────────────────────
 // API ERROR CLASS
@@ -77,6 +140,7 @@ export class ApiError extends Error {
 class ApiService {
   private baseUrl: string;
   private timeoutMs: number;
+  private unauthorizedCallback?: () => void;
 
   constructor(
     baseUrl: string = DEFAULT_API_BASE_URL,
@@ -98,19 +162,53 @@ class ApiService {
     return this.baseUrl;
   }
 
-  // ── Private Helper: Fetch dengan timeout ──
+  /**
+   * Daftarkan handler saat menerima HTTP 401 Unauthorized
+   * Digunakan oleh AuthContext untuk otomatis mengarahkan ke /login
+   */
+  setUnauthorizedCallback(callback: () => void): void {
+    this.unauthorizedCallback = callback;
+  }
+
+  // ── Token Management Public Helpers ──
+
+  async getStoredToken(): Promise<string | null> {
+    return await getStoredAccessToken();
+  }
+
+  async saveToken(token: string): Promise<void> {
+    await saveStoredAccessToken(token);
+  }
+
+  async removeToken(): Promise<void> {
+    await deleteStoredAccessToken();
+  }
+
+  // ── Private Helper: Fetch dengan timeout & Bearer Token ──
 
   /**
-   * Wrapper fetch() dengan AbortController timeout.
-   * Menangani status code non-2xx sebagai error.
+   * Wrapper fetch() dengan:
+   * 1. AbortController timeout.
+   * 2. Otomatis attach token Bearer ke protected endpoints (Task 02).
+   * 3. Tangani 401 Unauthorized dengan menghapus token & panggil callback re-login.
    */
   private async fetchWithTimeout(
     endpoint: string,
     options: RequestInit = {},
-    customTimeoutMs?: number
+    customTimeoutMs?: number,
+    isPublic: boolean = false
   ): Promise<Response> {
     const url = `${this.baseUrl}${endpoint}`;
     const timeout = customTimeoutMs || this.timeoutMs;
+
+    // TASK 02: Baca token dari SecureStore jika bukan endpoint publik
+    let authHeaders: Record<string, string> = {};
+    if (!isPublic) {
+      const token = await getStoredAccessToken();
+      if (token) {
+        authHeaders['Authorization'] = `Bearer ${token}`;
+      }
+    }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -121,13 +219,39 @@ class ApiService {
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
+          ...authHeaders,
           ...options.headers,
         },
       });
 
       clearTimeout(timeoutId);
 
-      // Tangani HTTP Response — status code selain 2xx adalah error
+      // TASK 02: Jika server merespons 401 Unauthorized (token invalid / kadaluarsa)
+      if (response.status === 401) {
+        console.warn(
+          `[ApiService] 401 Unauthorized dari ${endpoint}! Token kadaluarsa atau tidak valid.`
+        );
+        // Hapus token dari SecureStore
+        await deleteStoredAccessToken();
+
+        // Picu callback auth context agar user diarahkan ke login
+        if (this.unauthorizedCallback) {
+          try {
+            this.unauthorizedCallback();
+          } catch (cbErr) {
+            console.warn('[ApiService] Error executing unauthorized callback:', cbErr);
+          }
+        }
+
+        const body = await response.text().catch(() => '');
+        throw new ApiError(
+          'Sesi Anda telah berakhir atau token tidak valid (401). Silakan login kembali.',
+          401,
+          body
+        );
+      }
+
+      // Tangani HTTP Response selain 2xx
       if (!response.ok) {
         const body = await response.text().catch(() => '');
         throw new ApiError(
@@ -162,16 +286,74 @@ class ApiService {
   // ── Public API Methods ──
 
   /**
+   * POST /login (Task 01)
+   * Login ke server backend dengan email & password.
+   * Mengembalikan JWT access_token dan data user.
+   * Token disimpan secara aman ke SecureStore:
+   *   await SecureStore.setItemAsync('access_token', token);
+   */
+  async login(email: string, password: string): Promise<LoginResponseDTO> {
+    const payload: LoginRequestDTO = { email, password };
+
+    try {
+      let response: Response;
+
+      // Coba POST ke /login terlebih dahulu, lalu /api/login jika 404
+      try {
+        response = await this.fetchWithTimeout(
+          '/login',
+          {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          },
+          undefined,
+          true // Public endpoint
+        );
+      } catch (err: any) {
+        if (err instanceof ApiError && err.statusCode === 404) {
+          response = await this.fetchWithTimeout(
+            '/api/login',
+            {
+              method: 'POST',
+              body: JSON.stringify(payload),
+            },
+            undefined,
+            true
+          );
+        } else {
+          throw err;
+        }
+      }
+
+      const json: LoginResponseDTO = await response.json();
+
+      if (!json.access_token) {
+        throw new ApiError(
+          'Response login tidak valid: access_token tidak ditemukan.',
+          500
+        );
+      }
+
+      // TASK 01: Simpan access_token secara aman ke Expo SecureStore
+      await saveStoredAccessToken(json.access_token);
+      return json;
+    } catch (error) {
+      console.warn('[ApiService] Gagal login via REST API:', (error as Error).message);
+      throw error;
+    }
+  }
+
+  /**
    * GET /api/health
-   * Cek apakah server backend aktif dan dapat diakses.
-   * @returns APIHealthDTO atau null jika gagal
+   * Cek apakah server backend aktif dan dapat diakses (Public).
    */
   async checkHealth(): Promise<APIHealthDTO | null> {
     try {
       const response = await this.fetchWithTimeout(
         '/api/health',
         { method: 'GET' },
-        HEALTH_CHECK_TIMEOUT_MS
+        HEALTH_CHECK_TIMEOUT_MS,
+        true // Public
       );
       const data: APIHealthDTO = await response.json();
       console.log('[ApiService] Health check OK:', data.service);
@@ -183,9 +365,9 @@ class ApiService {
   }
 
   /**
-   * GET /api/items
+   * GET /api/items (Protected Endpoint)
    * Ambil seluruh daftar barang dari REST API.
-   * Response JSON di-parse dan di-mapping via DTO → CampusItem[].
+   * Header Authorization: Bearer <token> disertakan otomatis.
    */
   async fetchItems(): Promise<CampusItem[]> {
     try {
@@ -194,12 +376,10 @@ class ApiService {
       });
       const json = await response.json();
 
-      // API bisa mengembalikan { items: [...] } atau langsung [...]
       const rawItems: CampusItemDTO[] = Array.isArray(json)
         ? json
         : json.items || [];
 
-      // TASK 01: Mapping DTO → Application Model
       const mappedItems = mapCampusItemsDTOToModels(rawItems);
       console.log(
         `[ApiService] Berhasil fetch ${mappedItems.length} items dari API`
@@ -212,7 +392,7 @@ class ApiService {
   }
 
   /**
-   * GET /api/claims
+   * GET /api/claims (Protected Endpoint)
    * Ambil seluruh daftar klaim dari REST API.
    */
   async fetchClaims(): Promise<ClaimRequest[]> {
@@ -238,9 +418,25 @@ class ApiService {
   }
 
   /**
-   * GET /api/data
+   * GET /api/programs (Protected Endpoint)
+   * Ambil daftar program bantuan & layanan kampus dari REST API.
+   */
+  async fetchPrograms(): Promise<ProgramDTO[]> {
+    try {
+      const response = await this.fetchWithTimeout('/api/programs', {
+        method: 'GET',
+      });
+      const json = await response.json();
+      return Array.isArray(json) ? json : json.programs || [];
+    } catch (error) {
+      console.error('[ApiService] Gagal fetch programs:', (error as Error).message);
+      throw error;
+    }
+  }
+
+  /**
+   * GET /api/data (Protected Endpoint)
    * Ambil seluruh data (items + claims) sekaligus.
-   * Ini adalah endpoint utama untuk sinkronisasi awal.
    */
   async fetchAllData(): Promise<{ items: CampusItem[]; claims: ClaimRequest[] }> {
     try {
@@ -249,7 +445,6 @@ class ApiService {
       });
       const json: APIDataResponseDTO = await response.json();
 
-      // TASK 01: Mapping via DTO mapper
       const mapped = mapAPIDataResponseToModels(json);
       console.log(
         `[ApiService] Berhasil fetch data lengkap: ${mapped.items.length} items, ${mapped.claims.length} claims`
@@ -265,7 +460,7 @@ class ApiService {
   }
 
   /**
-   * GET /api/items/:id
+   * GET /api/items/:id (Protected Endpoint)
    * Ambil detail satu barang berdasarkan ID.
    */
   async fetchItemById(id: string): Promise<CampusItem | null> {
@@ -288,9 +483,8 @@ class ApiService {
   }
 
   /**
-   * POST /api/sync
+   * POST /api/sync (Protected Endpoint)
    * Sinkronisasi data dari aplikasi ke server (push).
-   * Mengirim seluruh state items + claims ke backend.
    */
   async syncData(data: {
     items?: CampusItem[];

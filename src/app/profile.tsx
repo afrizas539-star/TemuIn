@@ -1,7 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import React from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import {
   Alert,
   Platform,
@@ -10,11 +9,11 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { StudentBottomNav } from '@/components/StudentBottomNav';
-import { useAuth } from '@/context/AuthContext';
+import { StudentBottomNav } from "@/components/StudentBottomNav";
+import { useAuth } from "@/context/AuthContext";
 
 export default function StudentProfileScreen() {
   const router = useRouter();
@@ -23,19 +22,19 @@ export default function StudentProfileScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      'Konfirmasi Logout',
-      'Apakah Anda yakin ingin keluar dari akun mahasiswa?',
+      "Konfirmasi Logout",
+      "Apakah Anda yakin ingin keluar dari akun mahasiswa?",
       [
-        { text: 'Batal', style: 'cancel' },
+        { text: "Batal", style: "cancel" },
         {
-          text: 'Keluar',
-          style: 'destructive',
+          text: "Keluar",
+          style: "destructive",
           onPress: async () => {
             await logout();
-            router.replace('/login');
+            router.replace("/login");
           },
         },
-      ]
+      ],
     );
   };
 
@@ -48,7 +47,10 @@ export default function StudentProfileScreen() {
         style={[
           styles.header,
           {
-            paddingTop: Math.max(insets.top, Platform.OS === 'android' ? 24 : 12),
+            paddingTop: Math.max(
+              insets.top,
+              Platform.OS === "android" ? 24 : 12,
+            ),
           },
         ]}
       >
@@ -68,12 +70,14 @@ export default function StudentProfileScreen() {
             <Ionicons name="person" size={24} color="#2563EB" />
           </View>
           <View style={styles.civitasInfo}>
-            <Text style={styles.civitasTitle}>{user?.name || 'Mahasiswa Kampus'}</Text>
+            <Text style={styles.civitasTitle}>
+              {user?.name || "Mahasiswa Kampus"}
+            </Text>
             <Text style={styles.civitasMeta}>
-              {user?.nim ? `NIM: ${user.nim}` : 'Mahasiswa Terdaftar'}
+              {user?.nim ? `NIM: ${user.nim}` : "Mahasiswa Terdaftar"}
             </Text>
             <Text style={styles.civitasDesc}>
-              {user?.email || 'mahasiswa@kampus.ac.id'}
+              {user?.email || "mahasiswa@kampus.ac.id"}
             </Text>
           </View>
         </View>
@@ -89,7 +93,9 @@ export default function StudentProfileScreen() {
             <View style={styles.sopDetails}>
               <Text style={styles.sopStepTitle}>Kehilangan Barang?</Text>
               <Text style={styles.sopStepDesc}>
-                Cari barang di katalog aplikasi. Jika terdaftar, buka detail dan tekan tombol klaim. Jika belum terdaftar, datangi Pos Satpam terdekat untuk membuat laporan fisik.
+                Cari barang di katalog aplikasi. Jika terdaftar, buka detail dan
+                tekan tombol klaim. Jika belum terdaftar, datangi Pos Satpam
+                terdekat untuk membuat laporan fisik.
               </Text>
             </View>
           </View>
@@ -103,7 +109,9 @@ export default function StudentProfileScreen() {
             <View style={styles.sopDetails}>
               <Text style={styles.sopStepTitle}>Menemukan Barang?</Text>
               <Text style={styles.sopStepDesc}>
-                Serahkan langsung ke Pos Satpam atau Petugas TU Fakultas. Petugas berwenang yang akan menginput data dan memfoto barang ke sistem.
+                Serahkan langsung ke Pos Satpam atau Petugas TU Fakultas.
+                Petugas berwenang yang akan menginput data dan memfoto barang ke
+                sistem.
               </Text>
             </View>
           </View>
@@ -117,7 +125,9 @@ export default function StudentProfileScreen() {
             <View style={styles.sopDetails}>
               <Text style={styles.sopStepTitle}>Verifikasi & Pengambilan</Text>
               <Text style={styles.sopStepDesc}>
-                Setelah klaim diverifikasi oleh petugas, datangi Pos Keamanan Kampus dengan membawa KTM/KTP fisik asli untuk serah terima barang.
+                Setelah klaim diverifikasi oleh petugas, datangi Pos Keamanan
+                Kampus dengan membawa KTM/KTP fisik asli untuk serah terima
+                barang.
               </Text>
             </View>
           </View>
@@ -130,7 +140,9 @@ export default function StudentProfileScreen() {
             <Ionicons name="shield" size={18} color="#2563EB" />
             <View style={{ flex: 1 }}>
               <Text style={styles.poskoName}>Pos Satpam Gerbang Utama</Text>
-              <Text style={styles.poskoNote}>Layanan 24 Jam • Pusat Loker Barang Temuan</Text>
+              <Text style={styles.poskoNote}>
+                Layanan 24 Jam • Pusat Loker Barang Temuan
+              </Text>
             </View>
           </View>
 
@@ -139,8 +151,12 @@ export default function StudentProfileScreen() {
           <View style={styles.poskoItem}>
             <Ionicons name="book" size={18} color="#059669" />
             <View style={{ flex: 1 }}>
-              <Text style={styles.poskoName}>Meja Resepsionis Perpustakaan Pusat</Text>
-              <Text style={styles.poskoNote}>Senin - Jumat: 08.00 - 17.00 WIB</Text>
+              <Text style={styles.poskoName}>
+                Meja Resepsionis Perpustakaan Pusat
+              </Text>
+              <Text style={styles.poskoNote}>
+                Senin - Jumat: 08.00 - 17.00 WIB
+              </Text>
             </View>
           </View>
 
@@ -149,7 +165,9 @@ export default function StudentProfileScreen() {
           <View style={styles.poskoItem}>
             <Ionicons name="business" size={18} color="#D97706" />
             <View style={{ flex: 1 }}>
-              <Text style={styles.poskoName}>Tata Usaha Gedung Kuliah Bersama (GKB)</Text>
+              <Text style={styles.poskoName}>
+                Tata Usaha Gedung Kuliah Bersama (GKB)
+              </Text>
               <Text style={styles.poskoNote}>Lantai 1 Ruang Informasi</Text>
             </View>
           </View>
@@ -162,9 +180,9 @@ export default function StudentProfileScreen() {
           style={styles.adminAccessCard}
           onPress={() => {
             if (isAdminAuthenticated) {
-              router.push('/admin/dashboard');
+              router.push("/admin/dashboard");
             } else {
-              router.push('/admin/login');
+              router.push("/admin/login");
             }
           }}
         >
@@ -173,12 +191,14 @@ export default function StudentProfileScreen() {
           </View>
           <View style={styles.adminAccessTextWrap}>
             <Text style={styles.adminAccessTitle}>
-              {isAdminAuthenticated ? 'Buka Dashboard Admin' : 'Login Petugas / Admin'}
+              {isAdminAuthenticated
+                ? "Buka Dashboard Admin"
+                : "Login Petugas / Admin"}
             </Text>
             <Text style={styles.adminAccessDesc}>
               {isAdminAuthenticated
-                ? 'Kelola data barang temuan, ubah status, dan verifikasi klaim.'
-                : 'Khusus staf dan satpam pengelola sistem lost & found kampus.'}
+                ? "Kelola data barang temuan, ubah status, dan verifikasi klaim."
+                : "Khusus staf dan satpam pengelola sistem lost & found kampus."}
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color="#818CF8" />
@@ -203,24 +223,24 @@ export default function StudentProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: "#F8FAFC",
   },
   header: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: 16,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: "#F1F5F9",
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontWeight: "800",
+    color: "#0F172A",
     letterSpacing: -0.4,
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#64748B',
+    color: "#64748B",
     marginTop: 2,
   },
   scrollContent: {
@@ -228,15 +248,15 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   civitasCard: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 16,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
+    borderColor: "#E2E8F0",
+    shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 6,
@@ -247,113 +267,113 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#EFF6FF",
+    alignItems: "center",
+    justifyContent: "center",
   },
   civitasInfo: {
     flex: 1,
   },
   civitasTitle: {
     fontSize: 15,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontWeight: "800",
+    color: "#0F172A",
   },
   civitasDesc: {
     fontSize: 12,
-    color: '#64748B',
+    color: "#64748B",
     marginTop: 4,
     lineHeight: 17,
   },
   sectionHeading: {
     fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontWeight: "800",
+    color: "#0F172A",
     marginBottom: 10,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   sopCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: "#E2E8F0",
   },
   sopStep: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   sopNum: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#2563EB',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#2563EB",
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: 2,
   },
   sopNumText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   sopDetails: {
     flex: 1,
   },
   sopStepTitle: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: "700",
+    color: "#0F172A",
     marginBottom: 3,
   },
   sopStepDesc: {
     fontSize: 12,
-    color: '#475569',
+    color: "#475569",
     lineHeight: 18,
   },
   sopDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: "#F1F5F9",
     marginVertical: 12,
   },
   poskoListCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: "#E2E8F0",
   },
   poskoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   poskoName: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: "700",
+    color: "#0F172A",
   },
   poskoNote: {
     fontSize: 11,
-    color: '#64748B',
+    color: "#64748B",
     marginTop: 2,
   },
   poskoDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: "#F1F5F9",
     marginVertical: 12,
   },
   adminAccessCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0F172A',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0F172A",
     borderRadius: 16,
     padding: 16,
     gap: 14,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
@@ -363,45 +383,45 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: 'rgba(99, 102, 241, 0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(99, 102, 241, 0.3)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   adminAccessTextWrap: {
     flex: 1,
   },
   adminAccessTitle: {
     fontSize: 14,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
   adminAccessDesc: {
     fontSize: 11,
-    color: '#94A3B8',
+    color: "#94A3B8",
     marginTop: 3,
     lineHeight: 16,
   },
   civitasMeta: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#2563EB',
+    fontWeight: "700",
+    color: "#2563EB",
     marginTop: 2,
   },
   logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FEE2E2',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FEE2E2",
     paddingVertical: 14,
     borderRadius: 14,
     gap: 8,
     marginTop: 18,
     borderWidth: 1,
-    borderColor: '#FECDD3',
+    borderColor: "#FECDD3",
   },
   logoutBtnText: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#DC2626',
+    fontWeight: "700",
+    color: "#DC2626",
   },
 });

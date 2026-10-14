@@ -1,7 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Image,
@@ -13,20 +13,26 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-import { AdminBottomNav } from '@/components/AdminBottomNav';
-import { AdminHeader } from '@/components/AdminHeader';
-import { ImagePickerButton } from '@/components/ImagePickerButton';
-import { useAuth } from '@/context/AuthContext';
+import { AdminBottomNav } from "@/components/AdminBottomNav";
+import { AdminHeader } from "@/components/AdminHeader";
+import { ImagePickerButton } from "@/components/ImagePickerButton";
+import { useAuth } from "@/context/AuthContext";
 
 export default function AdminProfileScreen() {
   const router = useRouter();
-  const { adminProfile, updateProfile, logout, isAdminAuthenticated, isLoadingAuth } = useAuth();
+  const {
+    adminProfile,
+    updateProfile,
+    logout,
+    isAdminAuthenticated,
+    isLoadingAuth,
+  } = useAuth();
 
   useEffect(() => {
     if (!isLoadingAuth && !isAdminAuthenticated) {
-      router.replace('/admin/login');
+      router.replace("/admin/login");
     }
   }, [isAdminAuthenticated, isLoadingAuth]);
 
@@ -34,9 +40,11 @@ export default function AdminProfileScreen() {
   const [name, setName] = useState(adminProfile.name);
   const [email, setEmail] = useState(adminProfile.email);
   const [phone, setPhone] = useState(adminProfile.phone);
-  const [password, setPassword] = useState(adminProfile.password || '');
-  const [avatarUri, setAvatarUri] = useState(adminProfile.avatarUri || '');
-  const [officeLocation, setOfficeLocation] = useState(adminProfile.officeLocation);
+  const [password, setPassword] = useState(adminProfile.password || "");
+  const [avatarUri, setAvatarUri] = useState(adminProfile.avatarUri || "");
+  const [officeLocation, setOfficeLocation] = useState(
+    adminProfile.officeLocation,
+  );
   const [showPassword, setShowPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -44,26 +52,26 @@ export default function AdminProfileScreen() {
     setName(adminProfile.name);
     setEmail(adminProfile.email);
     setPhone(adminProfile.phone);
-    setPassword(adminProfile.password || '');
-    setAvatarUri(adminProfile.avatarUri || '');
+    setPassword(adminProfile.password || "");
+    setAvatarUri(adminProfile.avatarUri || "");
     setOfficeLocation(adminProfile.officeLocation);
   }, [adminProfile]);
 
   const handleSaveProfile = async () => {
     if (!name.trim()) {
-      Alert.alert('Validasi', 'Nama petugas tidak boleh kosong.');
+      Alert.alert("Validasi", "Nama petugas tidak boleh kosong.");
       return;
     }
-    if (!email.trim() || !email.includes('@')) {
-      Alert.alert('Validasi', 'Akun Gmail tidak valid.');
+    if (!email.trim() || !email.includes("@")) {
+      Alert.alert("Validasi", "Akun Gmail tidak valid.");
       return;
     }
     if (!phone.trim()) {
-      Alert.alert('Validasi', 'Nomor HP tidak boleh kosong.');
+      Alert.alert("Validasi", "Nomor HP tidak boleh kosong.");
       return;
     }
     if (password && password.length < 6) {
-      Alert.alert('Validasi', 'Password minimal 6 karakter.');
+      Alert.alert("Validasi", "Password minimal 6 karakter.");
       return;
     }
 
@@ -79,13 +87,16 @@ export default function AdminProfileScreen() {
       });
 
       if (res.success) {
-        Alert.alert('Berhasil', 'Profil petugas dan akun login berhasil disimpan!');
+        Alert.alert(
+          "Berhasil",
+          "Profil petugas dan akun login berhasil disimpan!",
+        );
         setIsEditing(false);
       } else {
-        Alert.alert('Gagal', res.message || 'Gagal menyimpan profil.');
+        Alert.alert("Gagal", res.message || "Gagal menyimpan profil.");
       }
     } catch (e) {
-      Alert.alert('Error', 'Terjadi kesalahan saat menyimpan.');
+      Alert.alert("Error", "Terjadi kesalahan saat menyimpan.");
     } finally {
       setIsSaving(false);
     }
@@ -93,19 +104,19 @@ export default function AdminProfileScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      'Konfirmasi Logout',
-      'Apakah Anda yakin ingin keluar dari akun Admin?',
+      "Konfirmasi Logout",
+      "Apakah Anda yakin ingin keluar dari akun Admin?",
       [
-        { text: 'Batal', style: 'cancel' },
+        { text: "Batal", style: "cancel" },
         {
-          text: 'Keluar',
-          style: 'destructive',
+          text: "Keluar",
+          style: "destructive",
           onPress: async () => {
             await logout();
-            router.replace('/login');
+            router.replace("/login");
           },
         },
-      ]
+      ],
     );
   };
 
@@ -115,7 +126,7 @@ export default function AdminProfileScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={styles.container}
     >
       <StatusBar style="light" />
@@ -155,7 +166,9 @@ export default function AdminProfileScreen() {
         <View style={styles.formContainer}>
           <View style={styles.formHeaderRow}>
             <Text style={styles.formHeaderTitle}>
-              {isEditing ? 'Ubah Informasi Petugas' : 'Detail Informasi Petugas'}
+              {isEditing
+                ? "Ubah Informasi Petugas"
+                : "Detail Informasi Petugas"}
             </Text>
             {!isEditing ? (
               <TouchableOpacity
@@ -173,7 +186,7 @@ export default function AdminProfileScreen() {
                   setName(adminProfile.name);
                   setEmail(adminProfile.email);
                   setPhone(adminProfile.phone);
-                  setPassword(adminProfile.password || '');
+                  setPassword(adminProfile.password || "");
                 }}
               >
                 <Text style={styles.cancelToggleText}>Batal</Text>
@@ -187,7 +200,7 @@ export default function AdminProfileScreen() {
               <ImagePickerButton
                 imageUri={avatarUri}
                 onImageSelected={(uri) => setAvatarUri(uri)}
-                onImageRemoved={() => setAvatarUri('')}
+                onImageRemoved={() => setAvatarUri("")}
                 title="Ganti Foto Profil"
                 subtitle="Pilih foto formal dari galeri HP Anda"
                 aspect={[1, 1]}
@@ -204,7 +217,7 @@ export default function AdminProfileScreen() {
                 value={name}
                 onChangeText={setName}
                 placeholder="Nama Petugas"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor="#2a4e81"
               />
             ) : (
               <View style={styles.readOnlyBox}>
@@ -223,7 +236,7 @@ export default function AdminProfileScreen() {
                 value={email}
                 onChangeText={setEmail}
                 placeholder="petugas@gmail.com"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor="#3a5f93"
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
@@ -273,7 +286,7 @@ export default function AdminProfileScreen() {
                   style={{ padding: 10 }}
                 >
                   <Ionicons
-                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
                     size={18}
                     color="#64748B"
                   />
@@ -301,7 +314,9 @@ export default function AdminProfileScreen() {
             ) : (
               <View style={styles.readOnlyBox}>
                 <Ionicons name="location-outline" size={16} color="#64748B" />
-                <Text style={styles.readOnlyText}>{adminProfile.officeLocation}</Text>
+                <Text style={styles.readOnlyText}>
+                  {adminProfile.officeLocation}
+                </Text>
               </View>
             )}
           </View>
@@ -316,7 +331,7 @@ export default function AdminProfileScreen() {
             >
               <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
               <Text style={styles.saveBtnText}>
-                {isSaving ? 'Menyimpan...' : 'Simpan Perubahan Profil'}
+                {isSaving ? "Menyimpan..." : "Simpan Perubahan Profil"}
               </Text>
             </TouchableOpacity>
           )}
@@ -341,113 +356,113 @@ export default function AdminProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: "#F8FAFC",
   },
   scrollContent: {
     padding: 16,
     paddingBottom: 30,
   },
   profileCardHeader: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#c3c4d5",
     borderRadius: 20,
     padding: 20,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
+    borderColor: "#E2E8F0",
+    shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
   },
   avatarWrap: {
-    position: 'relative',
+    position: "relative",
     marginBottom: 12,
   },
   avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: "#F1F5F9",
   },
   avatarPlaceholder: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#EEF2FF',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#EEF2FF",
+    alignItems: "center",
+    justifyContent: "center",
   },
   roleBadge: {
-    position: 'absolute',
+    position: "absolute",
     bottom: -2,
     right: -2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#4F46E5',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#4F46E5",
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 10,
     gap: 3,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: "#FFFFFF",
   },
   roleBadgeText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 9,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 0.5,
   },
   profileName: {
     fontSize: 17,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontWeight: "800",
+    color: "#0F172A",
   },
   profileEmail: {
     fontSize: 12,
-    color: '#4F46E5',
-    fontWeight: '600',
+    color: "#4F46E5",
+    fontWeight: "600",
     marginTop: 2,
   },
   profileRole: {
     fontSize: 12,
-    color: '#64748B',
+    color: "#64748B",
     marginTop: 4,
-    textAlign: 'center',
+    textAlign: "center",
   },
   formContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: "#E2E8F0",
     marginBottom: 16,
   },
   formHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
   formHeaderTitle: {
     fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontWeight: "800",
+    color: "#0F172A",
   },
   editToggleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: "#EEF2FF",
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
   },
   editToggleText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#4F46E5',
+    fontWeight: "700",
+    color: "#4F46E5",
   },
   cancelToggleBtn: {
     paddingHorizontal: 8,
@@ -455,8 +470,8 @@ const styles = StyleSheet.create({
   },
   cancelToggleText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#DC2626',
+    fontWeight: "600",
+    color: "#DC2626",
   },
   avatarPickerSection: {
     marginBottom: 14,
@@ -466,73 +481,73 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#334155',
+    fontWeight: "700",
+    color: "#334155",
     marginBottom: 6,
   },
   textInput: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: "#F8FAFC",
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: "#CBD5E1",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 13,
-    color: '#0F172A',
+    color: "#0F172A",
   },
   passwordWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: "#CBD5E1",
     borderRadius: 10,
   },
   readOnlyBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 10,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: "#F1F5F9",
   },
   readOnlyText: {
     fontSize: 13,
-    color: '#334155',
-    fontWeight: '600',
+    color: "#334155",
+    fontWeight: "600",
   },
   saveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#4F46E5',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#4F46E5",
     borderRadius: 12,
     paddingVertical: 13,
     gap: 8,
     marginTop: 10,
   },
   saveBtnText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FEF2F2',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FEF2F2",
     borderRadius: 14,
     paddingVertical: 14,
     gap: 8,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: "#FECACA",
   },
   logoutBtnText: {
-    color: '#DC2626',
+    color: "#DC2626",
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 });
