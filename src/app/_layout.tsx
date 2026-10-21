@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider } from '@/context/AuthContext';
 import { CampusDataProvider } from '@/context/CampusDataContext';
+import { NetworkProvider } from '@/context/NetworkContext';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -25,9 +26,10 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <AuthProvider>
-          <CampusDataProvider>
-            <Stack
+        <NetworkProvider>
+          <AuthProvider>
+            <CampusDataProvider>
+              <Stack
               screenOptions={{
                 headerShown: false,
                 animation: 'fade',
@@ -73,6 +75,7 @@ export default function RootLayout() {
             </Stack>
           </CampusDataProvider>
         </AuthProvider>
+      </NetworkProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

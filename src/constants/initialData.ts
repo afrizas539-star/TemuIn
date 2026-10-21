@@ -49,8 +49,87 @@ export const STATUS_COLORS: Record<ItemStatus, { bg: string; text: string; borde
   'Klaim Ditolak': { bg: '#FFE4E6', text: '#BE123C', border: '#FECDD3' },
 };
 
-// Data dummy barang & klaim telah dihapus.
-// Seluruh data barang (items) dan klaim (claims) kini dikelola
-// melalui Firebase Firestore (koleksi `items` dan `claims`).
-// Lihat: src/services/firebase/firestoreService.ts
-
+/**
+ * Data Barang Kampus Standar TemuIn UMM.
+ * Digunakan sebagai fallback offline / cache lokal dan seed data awal.
+ */
+export const INITIAL_CAMPUS_ITEMS: CampusItem[] = [
+  {
+    id: '1',
+    title: 'KTM & Lanyard a.n Nabila Putri',
+    category: 'KTM & Kartu',
+    type: 'found',
+    status: 'TERSEDIA',
+    foundStatus: 'TERSEDIA',
+    statusColor: '#15803D',
+    date: 'Hari ini • 10:15 WIB',
+    location: 'Perpustakaan Pusat Lantai 2 (Meja Belajar)',
+    faculty: 'Fakultas Ilmu Komputer',
+    description:
+      'Kartu Tanda Mahasiswa (KTM) a.n Nabila Putri (NIM: 2210511045), lanyard biru dongker, dan kartu e-money. Dititipkan di meja resepsionis perpustakaan.',
+    reward: null,
+    reporter: 'Riko (Petugas Perpus)',
+    image:
+      'https://images.unsplash.com/photo-1578357078586-491adf1aa5ba?q=80&w=600&auto=format&fit=crop',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: '2',
+    title: 'Kalkulator Saintifik Casio fx-991EX',
+    category: 'Alat Kuliah',
+    type: 'lost',
+    status: 'DALAM PENCARIAN',
+    lostStatus: 'DALAM PENCARIAN',
+    verificationStatus: 'Disetujui',
+    statusColor: '#B91C1C',
+    date: 'Kemarin • 15:40 WIB',
+    location: 'Gedung Kuliah Bersama (GKB) Ruang 402',
+    faculty: 'Fakultas Teknik',
+    description:
+      'Kalkulator Casio warna hitam putih dengan stiker barcode jurusan di bagian tutup belakang. Sangat dibutuhkan untuk praktikum.',
+    reward: 'Traktir Kopi / Makan Siang',
+    reporter: 'Fajar Nugraha (Mhs Teknik Sipil)',
+    image:
+      'https://images.unsplash.com/photo-1594980596870-8aa52a78d8cd?q=80&w=600&auto=format&fit=crop',
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+  },
+  {
+    id: '3',
+    title: 'Kunci Motor Honda Vario + Gantungan Lab',
+    category: 'Kunci Kendaraan',
+    type: 'found',
+    status: 'TERSEDIA',
+    foundStatus: 'TERSEDIA',
+    statusColor: '#15803D',
+    date: '23 Sep • 08:30 WIB',
+    location: 'Parkiran Sepeda Motor Gedung Dosen',
+    faculty: 'Semua Fakultas',
+    description:
+      'Kunci remote keyless dengan gantungan akrilik bertuliskan "Lab Jaringan". Ditemukan tergantung di slot jok motor dan diamankan di Pos Keamanan.',
+    reward: null,
+    reporter: 'Pak Joko (Satpam Kampus)',
+    image:
+      'https://images.unsplash.com/photo-1616422285623-13ff0162193c?q=80&w=600&auto=format&fit=crop',
+    createdAt: new Date(Date.now() - 172800000).toISOString(),
+  },
+  {
+    id: '4',
+    title: 'Jaket Almamater & Binder Catatan',
+    category: 'Pakaian & Buku',
+    type: 'lost',
+    status: 'DALAM PENCARIAN',
+    lostStatus: 'DALAM PENCARIAN',
+    verificationStatus: 'Disetujui',
+    statusColor: '#B91C1C',
+    date: '22 Sep • 17:00 WIB',
+    location: 'Kantin Pusat / Gazebo Mahasiswa',
+    faculty: 'Fakultas Ekonomi & Bisnis',
+    description:
+      'Jaket Almamater ukuran L, di dalamnya terdapat binder catatan mata kuliah Akuntansi Biaya serta flashdisk 32GB.',
+    reward: 'Ada Imbalan',
+    reporter: 'Dina Safitri (FEB 2024)',
+    image:
+      'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?q=80&w=600&auto=format&fit=crop',
+    createdAt: new Date(Date.now() - 259200000).toISOString(),
+  },
+];

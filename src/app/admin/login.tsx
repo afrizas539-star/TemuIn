@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -15,6 +16,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ApiErrorMessage } from '@/components/ApiErrorMessage';
 import { useAuth } from '@/context/AuthContext';
 
 export default function AdminLoginScreen() {
@@ -25,7 +27,7 @@ export default function AdminLoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [apiError, setApiError] = useState<unknown>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -35,13 +37,13 @@ export default function AdminLoginScreen() {
   }, [isAdminAuthenticated]);
 
   const handleLogin = async () => {
-    setErrorMessage('');
+    setApiError(null);
     if (!email.trim()) {
-      setErrorMessage('Silakan masukkan akun Gmail Anda.');
+      setApiError('Silakan masukkan akun email Anda.');
       return;
     }
     if (!password) {
-      setErrorMessage('Silakan masukkan password akun.');
+      setApiError('Silakan masukkan password akun.');
       return;
     }
 
@@ -51,10 +53,10 @@ export default function AdminLoginScreen() {
       if (res.success) {
         router.replace('/admin/dashboard');
       } else {
-        setErrorMessage(res.message || 'Login gagal. Silakan periksa kembali data Anda.');
+        setApiError(res.message || 'Login gagal. Silakan periksa kembali data Anda.');
       }
     } catch (e) {
-      setErrorMessage('Terjadi gangguan saat memproses login.');
+      setApiError(e);
     } finally {
       setIsSubmitting(false);
     }
@@ -63,7 +65,7 @@ export default function AdminLoginScreen() {
   const handleFillDemo = () => {
     setEmail(adminProfile.email || 'admin.kampus@gmail.com');
     setPassword(adminProfile.password || 'admin123kampus');
-    setErrorMessage('');
+    setApiError(null);
   };
 
   if (isLoadingAuth) {
@@ -100,10 +102,14 @@ export default function AdminLoginScreen() {
         </TouchableOpacity>
 
         <View style={styles.logoCircle}>
-          <Ionicons name="shield-checkmark" size={32} color="#818CF8" />
+          <Image
+            source={require('@/assets/images/logo-temuin.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </View>
-        <Text style={styles.appTitle}>Portal Pengelola</Text>
-        <Text style={styles.appSub}>Sistem Informasi Lost & Found Kampus</Text>
+        <Text style={styles.appTitle}>Portal Petugas TemuIn</Text>
+        <Text style={styles.appSub}>Universitas Muhammadiyah Malang</Text>
       </View>
 
       <ScrollView
@@ -114,16 +120,15 @@ export default function AdminLoginScreen() {
         <View style={styles.loginCard}>
           <Text style={styles.loginTitle}>Masuk Akun Petugas</Text>
           <Text style={styles.loginDesc}>
-            Gunakan akun Gmail resmi yang terdaftar untuk mengelola laporan dan klaim.
+            Gunakan akun resmi pengelola untuk memverifikasi laporan dan klaim barang civitas akademika.
           </Text>
 
-          {/* Error Banner */}
-          {errorMessage ? (
-            <View style={styles.errorBox}>
-              <Ionicons name="alert-circle" size={18} color="#DC2626" />
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            </View>
-          ) : null}
+          {/* Reusable HTTP / API Error Display */}
+          <ApiErrorMessage
+            error={apiError}
+            onRetry={handleLogin}
+            onDismiss={() => setApiError(null)}
+          />
 
           {/* Gmail Input */}
           <View style={styles.inputGroup}>
@@ -137,7 +142,7 @@ export default function AdminLoginScreen() {
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
-                  if (errorMessage) setErrorMessage('');
+                  if (apiError) setApiError(null);
                 }}
                 autoCapitalize="none"
                 keyboardType="email-address"
@@ -158,7 +163,7 @@ export default function AdminLoginScreen() {
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
-                  if (errorMessage) setErrorMessage('');
+                  if (apiError) setApiError(null);
                 }}
                 secureTextEntry={!showPassword}
               />
@@ -244,15 +249,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   logoCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(99, 102, 241, 0.2)',
+    width: 72,
+    height: 72,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: 'rgba(129, 140, 248, 0.4)',
+    borderColor: '#E2E8F0',
+    padding: 6,
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   appTitle: {
     fontSize: 22,

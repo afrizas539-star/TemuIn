@@ -15,10 +15,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ApiErrorMessage } from '@/components/ApiErrorMessage';
 import { StatusBadge } from '@/components/StatusBadge';
 import { STATUS_COLORS } from '@/constants/initialData';
 import { useAuth } from '@/context/AuthContext';
 import { useCampusData } from '@/context/CampusDataContext';
+import { useNetwork } from '@/context/NetworkContext';
+import { AppApiError } from '@/services/api/httpErrors';
 import { ItemStatus } from '@/types';
 
 export default function ItemDetailScreen() {
@@ -27,19 +30,33 @@ export default function ItemDetailScreen() {
   const insets = useSafeAreaInsets();
   const { getItemById, updateItemStatus, deleteItem } = useCampusData();
   const { isAdminAuthenticated } = useAuth();
+  const { connectionState } = useNetwork();
 
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [actionError, setActionError] = useState<unknown>(null);
 
   const item = getItemById(id as string);
 
   if (!item) {
+    const errorToDisplay =
+      connectionState === 'offline'
+        ? new AppApiError({
+            isNetworkError: true,
+            message: 'Koneksi gagal — server tidak dapat dijangkau.',
+          })
+        : new AppApiError({
+            statusCode: 404,
+            message: 'HTTP 404 — Barang yang kamu cari tidak ditemukan.',
+          });
+
     return (
-      <View style={[styles.container, styles.center]}>
-        <Ionicons name="alert-circle-outline" size={54} color="#94A3B8" />
-        <Text style={styles.notFoundTitle}>Barang Tidak Ditemukan</Text>
-        <Text style={styles.notFoundDesc}>
-          Data barang mungkin telah dihapus atau ID tidak valid.
-        </Text>
+      <View style={[styles.container, styles.center, { padding: 24 }]}>
+        <StatusBar style="dark" />
+        <ApiErrorMessage
+          error={errorToDisplay}
+          onRetry={() => router.replace('/explore')}
+          containerStyle={{ width: '100%' }}
+        />
         <TouchableOpacity
           style={styles.backBtn}
           onPress={() => router.back()}
@@ -76,9 +93,14 @@ export default function ItemDetailScreen() {
   ];
 
   const handleUpdateStatus = async (newStatus: ItemStatus) => {
-    await updateItemStatus(item.id, newStatus);
-    setShowStatusModal(false);
-    Alert.alert('Sukses', `Status barang diperbarui menjadi: ${newStatus}`);
+    try {
+      setActionError(null);
+      await updateItemStatus(item.id, newStatus);
+      setShowStatusModal(false);
+      Alert.alert('Sukses', `Status barang diperbarui menjadi: ${newStatus}`);
+    } catch (err) {
+      setActionError(err);
+    }
   };
 
   const handleDeleteItem = () => {
@@ -91,8 +113,12 @@ export default function ItemDetailScreen() {
           text: 'Hapus',
           style: 'destructive',
           onPress: async () => {
-            await deleteItem(item.id);
-            router.back();
+            try {
+              await deleteItem(item.id);
+              router.back();
+            } catch (err) {
+              setActionError(err);
+            }
           },
         },
       ]

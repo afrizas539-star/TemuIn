@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ApiErrorMessage } from '@/components/ApiErrorMessage';
 import { useAuth } from '@/context/AuthContext';
 
 /**
@@ -34,9 +35,6 @@ export default function LoginScreen() {
     isAuthenticated,
     role,
     login,
-    loginAsStudent,
-    loginAsAdmin,
-    adminProfile,
     isLoadingAuth,
   } = useAuth();
 
@@ -44,7 +42,7 @@ export default function LoginScreen() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [apiError, setApiError] = useState<unknown>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Jika sudah login, langsung arahkan ke dashboard yang sesuai
@@ -62,16 +60,16 @@ export default function LoginScreen() {
    * Fungsi login tunggal — menggunakan JWT REST API via apiService & AuthContext
    */
   const handleLogin = async () => {
-    setErrorMessage('');
+    setApiError(null);
 
     const trimmedId = identifier.trim();
 
     if (!trimmedId) {
-      setErrorMessage('Email atau NIM wajib diisi.');
+      setApiError('Email atau NIM wajib diisi.');
       return;
     }
     if (!password) {
-      setErrorMessage('Password wajib diisi.');
+      setApiError('Password wajib diisi.');
       return;
     }
 
@@ -86,27 +84,16 @@ export default function LoginScreen() {
           router.replace('/home');
         }
       } else {
-        setErrorMessage(res.message || 'Login gagal. Periksa kembali email/NIM dan password.');
+        setApiError(res.message || 'Login gagal. Periksa kembali email/NIM dan password.');
       }
-    } catch {
-      setErrorMessage('Terjadi gangguan sistem. Silakan coba kembali.');
+    } catch (err) {
+      setApiError(err);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Demo auto-fill — pilih berdasarkan isi field yang ada
-  const handleFillDemoStudent = () => {
-    setErrorMessage('');
-    setIdentifier('2210511045');
-    setPassword('mhs123');
-  };
 
-  const handleFillDemoAdmin = () => {
-    setErrorMessage('');
-    setIdentifier(adminProfile.email || 'admin.kampus@gmail.com');
-    setPassword(adminProfile.password || 'admin123kampus');
-  };
 
   if (isLoadingAuth) {
     return (
@@ -138,42 +125,42 @@ export default function LoginScreen() {
           <View style={styles.logoRow}>
             <View style={styles.logoBadge}>
               <Image
-                source={require('@/assets/images/expo-logo.png')}
+                source={require('@/assets/images/logo-temuin.png')}
                 style={styles.logoImage}
                 resizeMode="contain"
               />
             </View>
-            <View>
+            <View style={styles.brandTextWrap}>
               <Text style={styles.brandTitle}>
-                Temu<Text style={styles.brandHighlight}>In</Text> Kampus
+                Temu<Text style={styles.brandHighlight}>In</Text>
               </Text>
-              <Text style={styles.brandSubtitle}>Platform Lost & Found Universitas</Text>
+              <Text style={styles.brandSubtitle}>Universitas Muhammadiyah Malang</Text>
+              <Text style={styles.brandTagline}>Temukan • Laporkan • Bertemu</Text>
             </View>
           </View>
         </View>
 
-        {/* Tagline */}
+        {/* Tagline Card */}
         <View style={styles.taglineCard}>
-          <Ionicons name="shield-checkmark" size={20} color="#2563EB" />
+          <Ionicons name="shield-checkmark" size={20} color="#0266B3" />
           <View style={styles.taglineTextWrap}>
-            <Text style={styles.taglineTitle}>Masuk ke Akun Anda</Text>
+            <Text style={styles.taglineTitle}>Portal Layanan Lost & Found</Text>
             <Text style={styles.taglineDesc}>
-              Sistem otomatis menentukan akses berdasarkan role akun Anda.
+              Akses terpadu bagi mahasiswa dan petugas Universitas Muhammadiyah Malang.
             </Text>
           </View>
         </View>
 
         {/* Form Card */}
         <View style={styles.formCard}>
-          <Text style={styles.formTitle}>Login</Text>
+          <Text style={styles.formTitle}>Masuk ke Akun</Text>
 
-          {/* Error Banner */}
-          {errorMessage.length > 0 && (
-            <View style={styles.errorBox}>
-              <Ionicons name="alert-circle" size={18} color="#DC2626" />
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            </View>
-          )}
+          {/* Reusable HTTP & API Error Display */}
+          <ApiErrorMessage
+            error={apiError}
+            onRetry={handleLogin}
+            onDismiss={() => setApiError(null)}
+          />
 
           {/* Email / NIM Input */}
           <View style={styles.inputGroup}>
@@ -234,28 +221,7 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
 
-          {/* Quick Demo Credentials */}
-          <View style={styles.demoSection}>
-            <Text style={styles.demoLabel}>Akun Demo:</Text>
-            <View style={styles.demoRow}>
-              <TouchableOpacity
-                style={styles.demoBtn}
-                onPress={handleFillDemoStudent}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="school-outline" size={14} color="#2563EB" />
-                <Text style={styles.demoBtnText}>Mahasiswa</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.demoBtn, styles.demoBtnAdmin]}
-                onPress={handleFillDemoAdmin}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="shield-outline" size={14} color="#4F46E5" />
-                <Text style={[styles.demoBtnText, styles.demoBtnTextAdmin]}>Admin / Petugas</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+
         </View>
 
         {/* Security Notice */}
@@ -288,26 +254,30 @@ const styles = StyleSheet.create({
   logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
   },
   logoBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 64,
+    height: 64,
+    borderRadius: 16,
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    shadowColor: '#2563EB',
+    shadowColor: '#0266B3',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
+    padding: 4,
   },
   logoImage: {
-    width: 28,
-    height: 28,
+    width: '100%',
+    height: '100%',
+  },
+  brandTextWrap: {
+    flex: 1,
   },
   brandTitle: {
     fontSize: 22,
@@ -316,12 +286,19 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   brandHighlight: {
-    color: '#2563EB',
+    color: '#F58220',
   },
   brandSubtitle: {
     fontSize: 12,
+    color: '#1E293B',
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  brandTagline: {
+    fontSize: 11,
     color: '#64748B',
     fontWeight: '500',
+    marginTop: 2,
   },
   taglineCard: {
     flexDirection: 'row',
@@ -432,46 +409,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
   },
-  demoSection: {
-    marginTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    paddingTop: 14,
-    alignItems: 'center',
-    gap: 10,
-  },
-  demoLabel: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '600',
-  },
-  demoRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  demoBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  demoBtnAdmin: {
-    backgroundColor: '#EEF2FF',
-    borderColor: '#C7D2FE',
-  },
-  demoBtnText: {
-    fontSize: 12,
-    color: '#2563EB',
-    fontWeight: '700',
-  },
-  demoBtnTextAdmin: {
-    color: '#4F46E5',
-  },
+
   securityNotice: {
     flexDirection: 'row',
     alignItems: 'center',

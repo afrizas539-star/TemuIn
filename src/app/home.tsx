@@ -3,7 +3,9 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
+  Image,
   Modal,
   Platform,
   RefreshControl,
@@ -15,33 +17,37 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { ItemCard } from '@/components/ItemCard';
 import { StatusBadge } from '@/components/StatusBadge';
 import { StudentBottomNav } from '@/components/StudentBottomNav';
 import { CAMPUS_CATEGORIES } from '@/constants/initialData';
 import { useAuth } from '@/context/AuthContext';
 import { useCampusData } from '@/context/CampusDataContext';
-import { CampusItem } from '@/types';
+import { useNetwork } from '@/context/NetworkContext';
 
 /**
- * PRIORITAS 15 — HOME MAHASISWA
- * 
+ * HOME MAHASISWA — TEMUIN UNIVERSITAS MUHAMMADIYAH MALANG
+ *
  * Komponen:
- * 1. Welcome / Sapaan Mahasiswa
- * 2. Banner Kampus Responsif
- * 3. Search Bar & Kategori
- * 4. Shortcut: Lapor Barang Hilang & Lihat Barang Ditemukan
- * 5. Informasi Status Laporan Mahasiswa Sendiri
- * 6. Katalog Barang Terbaru (Temuan & Hilang)
- * 7. Protected Route (Wajib Login)
+ * 1. Top Bar: Logo resmi TemuIn UMM + Judul + Universitas + Tombol Info Posko
+ * 2. Sapaan Mahasiswa & Indikator Status Koneksi (Online / Menghubungkan / Server Tidak Tersedia / Offline)
+ * 3. Banner Informasi Kampus UMM ("Temukan • Laporkan • Bertemu")
+ * 4. Ringkasan Statistik Barang Kampus Real-time
+ * 5. Akses Cepat (Shortcut): Lapor Kehilangan & Explore Temuan
+ * 6. Status Laporan Milik Mahasiswa Sendiri
+ * 7. Search Bar & Filter Kategori Horizontal
+ * 8. Katalog Barang Kampus dengan Navigasi Detail Kartu
+ * 9. Navigasi Bawah Terpadu (Home, Explore, Klaim, Bantuan)
  */
 export default function StudentHomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, isAuthenticated, role, isLoadingAuth } = useAuth();
-  const { items, isLoading, isBackendConnected, refreshData } = useCampusData();
+  const { items, isLoading, refreshData } = useCampusData();
+  const { connectionState } = useNetwork();
 
-  // Protected Route Check (Prioritas 2 & 6)
+  // Route Protection (Wajib Login & Role Student)
   useEffect(() => {
     if (!isLoadingAuth) {
       if (!isAuthenticated || !user) {
@@ -50,7 +56,7 @@ export default function StudentHomeScreen() {
         router.replace('/admin/dashboard');
       }
     }
-  }, [isAuthenticated, role, isLoadingAuth]);
+  }, [isAuthenticated, role, isLoadingAuth, user]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Semua');
@@ -64,19 +70,28 @@ export default function StudentHomeScreen() {
     setIsRefreshing(false);
   };
 
-  // Laporan kehilangan milik mahasiswa yang sedang login (Prioritas 15 poin 7)
+  // Laporan kehilangan milik mahasiswa yang sedang login
   const myReports = items.filter(
-    (item) => item.type === 'lost' && (item.userId === user?.id || item.reporter?.includes(user?.name || ''))
+    (item) =>
+      item.type === 'lost' &&
+      (item.userId === user?.id ||
+        (user?.name && item.reporter?.toLowerCase().includes(user.name.toLowerCase())))
   );
 
   // Katalog publik: Barang temuan + barang hilang yang disetujui
   const publicItems = items.filter((item) => {
     if (item.type === 'found') return true;
-    // Barang hilang hanya tampil jika sudah disetujui admin
     return item.verificationStatus === 'Disetujui' || !item.verificationStatus;
   });
 
-  // Filter items berdasarkan search, kategori, dan tipe
+  // Statistik Real-time dari data aplikasi yang sebenarnya
+  const totalFoundCount = items.filter(
+    (i) => i.type === 'found' && (i.status === 'TERSEDIA' || i.status === 'Barang Ditemukan')
+  ).length;
+  const totalLostCount = items.filter((i) => i.type === 'lost').length;
+  const myReportsCount = myReports.length;
+
+  // Filter katalog berdasarkan kata kunci, kategori, dan tipe
   const filteredItems = publicItems.filter((item) => {
     const matchCategory =
       selectedCategory === 'Semua' || item.category === selectedCategory;
@@ -98,40 +113,40 @@ export default function StudentHomeScreen() {
 
   const renderHeader = () => (
     <View style={styles.headerContent}>
-      {/* 1. Sapaan Mahasiswa & Status Sync */}
+      {/* 1. Sapaan Mahasiswa & Indikator Status Koneksi Compact */}
       <View style={styles.greetingRow}>
-        <View>
+        <View style={styles.greetingTextWrap}>
           <Text style={styles.greetingSub}>Selamat Datang,</Text>
-          <Text style={styles.greetingName}>{user?.name || 'Mahasiswa'}</Text>
-          <Text style={styles.greetingMeta}>
-            {user?.nim ? `NIM: ${user.nim}` : 'Civitas Akademika Kampus'}
+          <Text style={styles.greetingName} numberOfLines={1}>
+            {user?.name || 'Mahasiswa Kampus'}
+          </Text>
+          <Text style={styles.greetingMeta} numberOfLines={1}>
+            {user?.nim ? `NIM: ${user.nim} • ` : ''}Universitas Muhammadiyah Malang
           </Text>
         </View>
 
-        <View style={styles.syncBadgeWrapper}>
-          <View
-            style={[
-              styles.syncDot,
-              { backgroundColor: isBackendConnected ? '#10B981' : '#F59E0B' },
-            ]}
-          />
-          <Text style={styles.syncText}>
-            {isBackendConnected ? 'Real-time Sync' : 'Shared Cache'}
-          </Text>
-        </View>
+        {/* Indikator Status Koneksi Compact di pojok kanan (Hanya pill, tanpa banner pemecah layout) */}
+        <ConnectionStatus compact />
       </View>
 
-      {/* 2. Banner Utama (Prioritas 15 & 21) */}
+      {/* 2. Banner Notifikasi Offline / Server Tidak Tersedia (Full Width, Diluar Row) */}
+      {(connectionState === 'offline' || connectionState === 'server_unavailable') && (
+        <View style={styles.connectionAlertWrap}>
+          <ConnectionStatus compact={false} showOfflineNotice={true} />
+        </View>
+      )}
+
+      {/* 3. Banner Utama TemuIn */}
       <View style={styles.bannerContainer}>
         <View style={styles.bannerDecorCircle} />
         <View style={styles.bannerContent}>
           <View style={styles.bannerBadge}>
-            <Ionicons name="sparkles" size={13} color="#FFFFFF" />
-            <Text style={styles.bannerBadgeText}>LAYANAN KAMPUS</Text>
+            <Ionicons name="sparkles" size={12} color="#FFFFFF" />
+            <Text style={styles.bannerBadgeText}>UNIVERSITAS MUHAMMADIYAH MALANG</Text>
           </View>
-          <Text style={styles.bannerTitle}>Barang Hilang atau Menemukan Barang?</Text>
+          <Text style={styles.bannerTitle}>Temukan • Laporkan • Bertemu</Text>
           <Text style={styles.bannerDesc}>
-            Laporkan melalui aplikasi dan bantu civitas kampus menemukan barangnya kembali.
+            Layanan resmi pelaporan barang hilang dan temuan untuk civitas akademika Universitas Muhammadiyah Malang.
           </Text>
           <View style={styles.bannerBtnRow}>
             <TouchableOpacity
@@ -139,14 +154,59 @@ export default function StudentHomeScreen() {
               onPress={() => router.push('/report-lost')}
               activeOpacity={0.85}
             >
-              <Ionicons name="add-circle" size={16} color="#2563EB" />
+              <Ionicons name="add-circle" size={16} color="#0266B3" />
               <Text style={styles.bannerActionBtnText}>Lapor Kehilangan</Text>
             </TouchableOpacity>
           </View>
         </View>
       </View>
 
-      {/* 3. Shortcut Utama (Prioritas 15 poin 4) */}
+      {/* 4. Ringkasan Jumlah Barang & Laporan Kampus (Real Application Data) */}
+      <View style={styles.statsSummaryRow}>
+        <TouchableOpacity
+          style={styles.statBox}
+          activeOpacity={0.7}
+          onPress={() => setFilterType('found')}
+        >
+          <View style={[styles.statIconBadge, { backgroundColor: '#DCFCE7' }]}>
+            <Ionicons name="archive" size={16} color="#15803D" />
+          </View>
+          <Text style={styles.statNumber}>{totalFoundCount}</Text>
+          <Text style={styles.statLabel}>Temuan Aktif</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.statBox}
+          activeOpacity={0.7}
+          onPress={() => setFilterType('lost')}
+        >
+          <View style={[styles.statIconBadge, { backgroundColor: '#FEE2E2' }]}>
+            <Ionicons name="alert-circle" size={16} color="#DC2626" />
+          </View>
+          <Text style={styles.statNumber}>{totalLostCount}</Text>
+          <Text style={styles.statLabel}>Laporan Hilang</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.statBox}
+          activeOpacity={0.7}
+          onPress={() => {
+            if (myReports.length > 0) {
+              setFilterType('lost');
+            } else {
+              router.push('/report-lost');
+            }
+          }}
+        >
+          <View style={[styles.statIconBadge, { backgroundColor: '#EFF6FF' }]}>
+            <Ionicons name="newspaper" size={16} color="#2563EB" />
+          </View>
+          <Text style={styles.statNumber}>{myReportsCount}</Text>
+          <Text style={styles.statLabel}>Laporan Saya</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 5. Akses Cepat (Shortcut Grid) */}
       <View style={styles.shortcutGrid}>
         <TouchableOpacity
           style={[styles.shortcutCard, styles.shortcutCardRed]}
@@ -154,7 +214,7 @@ export default function StudentHomeScreen() {
           activeOpacity={0.8}
         >
           <View style={[styles.shortcutIconCircle, { backgroundColor: '#FEE2E2' }]}>
-            <Ionicons name="alert-circle" size={22} color="#DC2626" />
+            <Ionicons name="alert-circle" size={20} color="#DC2626" />
           </View>
           <View style={styles.shortcutTextWrap}>
             <Text style={styles.shortcutTitle}>Lapor Kehilangan</Text>
@@ -165,26 +225,26 @@ export default function StudentHomeScreen() {
 
         <TouchableOpacity
           style={[styles.shortcutCard, styles.shortcutCardGreen]}
-          onPress={() => setFilterType('found')}
+          onPress={() => router.push('/explore')}
           activeOpacity={0.8}
         >
           <View style={[styles.shortcutIconCircle, { backgroundColor: '#DCFCE7' }]}>
             <Ionicons name="search" size={20} color="#15803D" />
           </View>
           <View style={styles.shortcutTextWrap}>
-            <Text style={styles.shortcutTitle}>Barang Ditemukan</Text>
-            <Text style={styles.shortcutSubtitle}>Cek barang di posko keamanan</Text>
+            <Text style={styles.shortcutTitle}>Explore Barang</Text>
+            <Text style={styles.shortcutSubtitle}>Katalog barang posko kampus</Text>
           </View>
           <Ionicons name="chevron-forward" size={16} color="#15803D" />
         </TouchableOpacity>
       </View>
 
-      {/* 4. Status Laporan Mahasiswa (Prioritas 15 poin 7) */}
+      {/* 6. Status Laporan Milik Mahasiswa */}
       {myReports.length > 0 && (
         <View style={styles.myReportsSection}>
           <View style={styles.sectionHeaderRow}>
             <View style={styles.sectionHeaderLeft}>
-              <Ionicons name="newspaper-outline" size={18} color="#2563EB" />
+              <Ionicons name="newspaper-outline" size={16} color="#2563EB" />
               <Text style={styles.sectionTitle}>Status Laporan Saya</Text>
             </View>
             <Text style={styles.reportCountText}>{myReports.length} Laporan</Text>
@@ -211,7 +271,7 @@ export default function StudentHomeScreen() {
                 />
               </View>
               <Text style={styles.myReportMeta}>
-                {report.location} • {report.date}
+                📍 {report.location} • {report.date}
               </Text>
               {report.verificationStatus === 'Menunggu Verifikasi' && (
                 <View style={styles.reportVerificationNotice}>
@@ -225,7 +285,7 @@ export default function StudentHomeScreen() {
                 <View style={styles.reportFoundNotice}>
                   <Ionicons name="checkmark-circle" size={14} color="#1D4ED8" />
                   <Text style={styles.reportFoundText}>
-                    Barang Anda telah ditemukan oleh petugas! Silakan hubungi posko.
+                    Barang Anda telah ditemukan oleh petugas! Silakan hubungi posko keamanan.
                   </Text>
                 </View>
               )}
@@ -234,7 +294,7 @@ export default function StudentHomeScreen() {
         </View>
       )}
 
-      {/* 5. Search Bar & Horizontal Category Filter */}
+      {/* 7. Search Bar & Horizontal Category Filter */}
       <View style={styles.searchSection}>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={18} color="#64748B" style={styles.searchIcon} />
@@ -280,9 +340,9 @@ export default function StudentHomeScreen() {
         />
       </View>
 
-      {/* 6. List Header & Filter Toggle */}
+      {/* 8. List Header & Filter Toggle */}
       <View style={styles.listHeaderRow}>
-        <View>
+        <View style={styles.listHeaderLeft}>
           <Text style={styles.listTitle}>Katalog Barang Kampus</Text>
           <Text style={styles.listSubtitle}>
             Menampilkan {filteredItems.length} barang tercatat
@@ -329,7 +389,7 @@ export default function StudentHomeScreen() {
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      {/* Top Navbar */}
+      {/* Top Navbar dengan Logo TemuIn Resmi */}
       <View
         style={[
           styles.topBar,
@@ -340,13 +400,19 @@ export default function StudentHomeScreen() {
       >
         <View style={styles.brandRow}>
           <View style={styles.logoBadge}>
-            <Ionicons name="school" size={20} color="#2563EB" />
+            <Image
+              source={require('@/assets/images/logo-temuin.png')}
+              style={styles.topLogoImage}
+              resizeMode="contain"
+            />
           </View>
-          <View>
+          <View style={styles.brandInfoWrap}>
             <Text style={styles.brandName}>
-              Temu<Text style={styles.brandHighlight}>In</Text> Kampus
+              Temu<Text style={styles.brandHighlight}>In</Text>
             </Text>
-            <Text style={styles.brandTagline}>Lost & Found Civitas Akademika</Text>
+            <Text style={styles.brandTagline} numberOfLines={1}>
+              Universitas Muhammadiyah Malang
+            </Text>
           </View>
         </View>
 
@@ -355,18 +421,25 @@ export default function StudentHomeScreen() {
             style={styles.poskoBtn}
             onPress={() => setShowPoskoModal(true)}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Buka informasi posko keamanan kampus"
           >
             <Ionicons name="shield-checkmark-outline" size={18} color="#1E293B" />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* List Katalog Barang (Prioritas 16: Semua Card Dapat Diklik) */}
+      {/* List Katalog Barang */}
       <FlatList
         data={filteredItems}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={renderHeader}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={[
+          styles.listContainer,
+          {
+            paddingBottom: Math.max(insets.bottom + 85, 110),
+          },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -381,15 +454,22 @@ export default function StudentHomeScreen() {
           </View>
         )}
         ListEmptyComponent={
-          !isLoading ? (
+          isLoading ? (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator size="small" color="#2563EB" />
+              <Text style={styles.loadingText}>Memuat katalog barang kampus...</Text>
+            </View>
+          ) : (
             <View style={styles.emptyContainer}>
               <Ionicons name="search-outline" size={44} color="#94A3B8" />
               <Text style={styles.emptyTitle}>Tidak ada barang yang cocok</Text>
               <Text style={styles.emptyDesc}>
-                Coba sesuaikan kata kunci pencarian, kategori, atau filter tipe barang.
+                {searchQuery
+                  ? `Tidak ada hasil untuk pencarian "${searchQuery}". Coba kata kunci lain atau reset filter.`
+                  : 'Belum ada barang pada kategori ini. Silakan pilih kategori atau filter lain.'}
               </Text>
             </View>
-          ) : null
+          )
         }
       />
 
@@ -447,16 +527,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
+    marginRight: 10,
   },
   logoBadge: {
     width: 38,
     height: 38,
-    borderRadius: 10,
-    backgroundColor: '#EFF6FF',
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#DBEAFE',
+    borderColor: '#E2E8F0',
+    padding: 2,
+    overflow: 'hidden',
+  },
+  topLogoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  brandInfoWrap: {
+    flex: 1,
   },
   brandName: {
     fontSize: 17,
@@ -464,16 +555,16 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   brandHighlight: {
-    color: '#2563EB',
+    color: '#F58220',
   },
   brandTagline: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#64748B',
+    fontWeight: '600',
   },
   topRightActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   poskoBtn: {
     width: 36,
@@ -484,7 +575,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   listContainer: {
-    paddingBottom: 24,
+    paddingBottom: 110,
   },
   headerContent: {
     paddingHorizontal: 16,
@@ -493,16 +584,21 @@ const styles = StyleSheet.create({
   greetingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 14,
+    alignItems: 'center',
+    marginBottom: 12,
+    minHeight: 46,
+  },
+  greetingTextWrap: {
+    flex: 1,
+    paddingRight: 10,
   },
   greetingSub: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
     fontWeight: '500',
   },
   greetingName: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#0F172A',
   },
@@ -512,32 +608,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 1,
   },
-  syncBadgeWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  syncDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  syncText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#475569',
+  connectionAlertWrap: {
+    marginBottom: 12,
+    width: '100%',
   },
   bannerContainer: {
     backgroundColor: '#1E3A8A',
     borderRadius: 16,
-    padding: 18,
-    marginBottom: 16,
+    padding: 16,
+    marginBottom: 14,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -570,7 +649,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 9,
     fontWeight: '800',
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
   },
   bannerTitle: {
     fontSize: 16,
@@ -580,10 +659,10 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   bannerDesc: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#DBEAFE',
-    lineHeight: 17,
-    marginBottom: 14,
+    lineHeight: 16,
+    marginBottom: 12,
   },
   bannerBtnRow: {
     flexDirection: 'row',
@@ -593,30 +672,73 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
   },
   bannerActionBtnText: {
-    color: '#2563EB',
+    color: '#0266B3',
     fontSize: 12,
     fontWeight: '700',
   },
+
+  // Stats Summary
+  statsSummaryRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 14,
+  },
+  statBox: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  statIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  statNumber: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  statLabel: {
+    fontSize: 10,
+    color: '#64748B',
+    fontWeight: '600',
+    marginTop: 1,
+  },
+
+  // Shortcuts
   shortcutGrid: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
+    gap: 10,
+    marginBottom: 14,
   },
   shortcutCard: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    padding: 12,
-    borderRadius: 14,
+    padding: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 10,
+    gap: 8,
+    minWidth: 0,
+    overflow: 'hidden',
   },
   shortcutCardRed: {
     borderColor: '#FECDD3',
@@ -625,9 +747,9 @@ const styles = StyleSheet.create({
     borderColor: '#BBF7D0',
   },
   shortcutIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 9,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -640,23 +762,25 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   shortcutSubtitle: {
-    fontSize: 10,
+    fontSize: 9,
     color: '#64748B',
     marginTop: 1,
   },
+
+  // Laporan Saya
   myReportsSection: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    padding: 14,
+    padding: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   sectionHeaderLeft: {
     flexDirection: 'row',
@@ -664,7 +788,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     color: '#0F172A',
   },
@@ -688,14 +812,14 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   myReportTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#0F172A',
     flex: 1,
     marginRight: 8,
   },
   myReportMeta: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#64748B',
   },
   reportVerificationNotice: {
@@ -728,8 +852,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     flex: 1,
   },
+
+  // Search & Filters
   searchSection: {
-    marginBottom: 14,
+    marginBottom: 12,
   },
   searchBar: {
     flexDirection: 'row',
@@ -737,17 +863,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 44,
-    marginBottom: 10,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    height: 42,
+    marginBottom: 8,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 6,
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 12,
     color: '#0F172A',
   },
   categoryScroll: {
@@ -757,35 +883,40 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 7,
   },
   categoryChipActive: {
     backgroundColor: '#2563EB',
     borderColor: '#2563EB',
   },
   categoryChipText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
     fontWeight: '600',
   },
   categoryChipTextActive: {
     color: '#FFFFFF',
   },
+
+  // List Header
   listHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
+  },
+  listHeaderLeft: {
+    flex: 1,
   },
   listTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: '#0F172A',
   },
   listSubtitle: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#64748B',
   },
   typeToggle: {
@@ -795,15 +926,15 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   toggleBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 6,
   },
   toggleBtnActive: {
     backgroundColor: '#FFFFFF',
   },
   toggleText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: '#64748B',
   },
@@ -811,27 +942,42 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontWeight: '700',
   },
+
   cardItemWrapper: {
     paddingHorizontal: 16,
+  },
+  loadingWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 30,
+    paddingVertical: 36,
+    paddingHorizontal: 24,
   },
   emptyTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#334155',
-    marginTop: 10,
+    marginTop: 8,
   },
   emptyDesc: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
     textAlign: 'center',
     marginTop: 4,
+    lineHeight: 16,
   },
+
+  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -861,6 +1007,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     marginBottom: 14,
+    lineHeight: 17,
   },
   poskoRow: {
     backgroundColor: '#F8FAFC',

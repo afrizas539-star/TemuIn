@@ -63,7 +63,7 @@ export default function StudentClaimsScreen() {
       >
         <Text style={styles.headerTitle}>Status Klaim Saya</Text>
         <Text style={styles.headerSubtitle}>
-          Pantau proses verifikasi barang yang Anda ajukan
+          Pantau proses verifikasi barang di Universitas Muhammadiyah Malang
         </Text>
       </View>
 
@@ -71,9 +71,9 @@ export default function StudentClaimsScreen() {
       <View style={styles.infoBanner}>
         <Ionicons name="shield-checkmark" size={20} color="#2563EB" />
         <View style={styles.infoBannerTextWrap}>
-          <Text style={styles.infoBannerTitle}>Verifikasi Dokumen Oleh Satpam</Text>
+          <Text style={styles.infoBannerTitle}>Verifikasi Dokumen Oleh Satpam UMM</Text>
           <Text style={styles.infoBannerDesc}>
-            Pengajuan klaim diperiksa secara manual oleh petugas keamanan kampus. Jika disetujui, bawa KTM fisik untuk serah terima barang.
+            Pengajuan klaim diperiksa secara manual oleh petugas keamanan Universitas Muhammadiyah Malang. Jika disetujui, bawa KTM fisik untuk serah terima barang.
           </Text>
         </View>
       </View>

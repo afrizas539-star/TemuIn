@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
   Alert,
+  Image,
   Platform,
   ScrollView,
   StyleSheet,
@@ -54,9 +55,9 @@ export default function StudentProfileScreen() {
           },
         ]}
       >
-        <Text style={styles.headerTitle}>Profil & Bantuan Civitas</Text>
+        <Text style={styles.headerTitle}>Profil & Informasi TemuIn</Text>
         <Text style={styles.headerSubtitle}>
-          Pusat akun dan informasi lost & found resmi universitas
+          Universitas Muhammadiyah Malang
         </Text>
       </View>
 
@@ -173,36 +174,33 @@ export default function StudentProfileScreen() {
           </View>
         </View>
 
-        {/* Portal Petugas / Admin Switcher */}
-        <Text style={styles.sectionHeading}>Akses Petugas / Pengelola</Text>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={styles.adminAccessCard}
-          onPress={() => {
-            if (isAdminAuthenticated) {
-              router.push("/admin/dashboard");
-            } else {
-              router.push("/admin/login");
-            }
-          }}
-        >
-          <View style={styles.adminIconBox}>
-            <Ionicons name="shield-half" size={24} color="#FFFFFF" />
+        {/* Informasi Aplikasi TemuIn */}
+        <Text style={styles.sectionHeading}>Informasi Aplikasi</Text>
+        <View style={styles.appInfoCard}>
+          <View style={styles.appInfoLogoWrap}>
+            <Image
+              source={require('@/assets/images/logo-temuin.png')}
+              style={styles.appInfoLogo}
+              resizeMode="contain"
+            />
           </View>
-          <View style={styles.adminAccessTextWrap}>
-            <Text style={styles.adminAccessTitle}>
-              {isAdminAuthenticated
-                ? "Buka Dashboard Admin"
-                : "Login Petugas / Admin"}
-            </Text>
-            <Text style={styles.adminAccessDesc}>
-              {isAdminAuthenticated
-                ? "Kelola data barang temuan, ubah status, dan verifikasi klaim."
-                : "Khusus staf dan satpam pengelola sistem lost & found kampus."}
-            </Text>
+          <View style={styles.appInfoDetails}>
+            <Text style={styles.appInfoTitle}>TemuIn Mobile</Text>
+            <Text style={styles.appInfoTagline}>“Temukan • Laporkan • Bertemu”</Text>
+            <Text style={styles.appInfoUniversity}>Universitas Muhammadiyah Malang</Text>
+            <View style={styles.appInfoBadgeRow}>
+              <View style={styles.versionBadge}>
+                <Text style={styles.versionText}>v1.0.0 Resmi</Text>
+              </View>
+              <View style={styles.verifiedBadge}>
+                <Ionicons name="checkmark-circle" size={12} color="#059669" />
+                <Text style={styles.verifiedText}>Terverifikasi</Text>
+              </View>
+            </View>
           </View>
-          <Ionicons name="chevron-forward" size={18} color="#818CF8" />
-        </TouchableOpacity>
+        </View>
+
+
 
         {/* Logout Button */}
         <TouchableOpacity
@@ -406,6 +404,93 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#2563EB",
     marginTop: 2,
+  },
+  appInfoCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    gap: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+    marginBottom: 8,
+  },
+  appInfoLogoWrap: {
+    width: 68,
+    height: 68,
+    borderRadius: 14,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    padding: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  appInfoLogo: {
+    width: "100%",
+    height: "100%",
+  },
+  appInfoDetails: {
+    flex: 1,
+  },
+  appInfoTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0F172A",
+    letterSpacing: -0.3,
+  },
+  appInfoTagline: {
+    fontSize: 11,
+    color: "#F58220",
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  appInfoUniversity: {
+    fontSize: 12,
+    color: "#0266B3",
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  appInfoBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 8,
+  },
+  versionBadge: {
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+  },
+  versionText: {
+    fontSize: 10,
+    color: "#0266B3",
+    fontWeight: "700",
+  },
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#ECFDF5",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+  },
+  verifiedText: {
+    fontSize: 10,
+    color: "#065F46",
+    fontWeight: "700",
   },
   logoutBtn: {
     flexDirection: "row",

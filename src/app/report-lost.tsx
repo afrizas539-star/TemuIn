@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ApiErrorMessage } from '@/components/ApiErrorMessage';
 import { ImagePickerButton } from '@/components/ImagePickerButton';
 import { CAMPUS_CATEGORIES } from '@/constants/initialData';
 import { useAuth } from '@/context/AuthContext';
@@ -49,8 +50,10 @@ export default function StudentReportLostScreen() {
   const [additionalInfo, setAdditionalInfo] = useState('');
   const [imageUri, setImageUri] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [apiError, setApiError] = useState<unknown>(null);
 
   const handleSubmit = async () => {
+    setApiError(null);
     // Validasi form (Prioritas 20)
     if (!title.trim()) {
       Alert.alert('Form Belum Lengkap', 'Nama barang yang hilang wajib diisi.');
@@ -107,8 +110,8 @@ export default function StudentReportLostScreen() {
           },
         ]
       );
-    } catch {
-      Alert.alert('Error', 'Gagal mengirim laporan kehilangan. Silakan coba kembali.');
+    } catch (err) {
+      setApiError(err);
     } finally {
       setIsSubmitting(false);
     }
@@ -139,7 +142,7 @@ export default function StudentReportLostScreen() {
         </TouchableOpacity>
         <View style={styles.headerTitleWrap}>
           <Text style={styles.headerTitle}>Lapor Barang Hilang</Text>
-          <Text style={styles.headerSubtitle}>Laporkan barang Anda yang tertinggal di kampus</Text>
+          <Text style={styles.headerSubtitle}>Universitas Muhammadiyah Malang</Text>
         </View>
       </View>
 
@@ -165,6 +168,13 @@ export default function StudentReportLostScreen() {
 
         {/* Form Container */}
         <View style={styles.formCard}>
+          {/* ApiErrorMessage jika terjadi error */}
+          <ApiErrorMessage
+            error={apiError}
+            onRetry={handleSubmit}
+            onDismiss={() => setApiError(null)}
+          />
+
           {/* Nama Barang */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>

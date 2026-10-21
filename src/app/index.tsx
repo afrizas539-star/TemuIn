@@ -104,25 +104,18 @@ export default function WelcomeSplashScreen() {
             },
           ]}
         >
-          {/* Logo Badge */}
+          {/* Logo TemuIn Resmi */}
           <View style={styles.logoBadge}>
             <Image
-              source={require('@/assets/images/expo-logo.png')}
+              source={require('@/assets/images/logo-temuin.png')}
               style={styles.logoImage}
               resizeMode="contain"
             />
           </View>
 
-          {/* App Brand & Subtitle */}
+          {/* Identitas Universitas & Kampus */}
           <View style={styles.titleWrap}>
-            <View style={styles.brandRow}>
-              <Text style={styles.brandTitle}>
-                Temu<Text style={styles.brandHighlight}>In</Text>
-              </Text>
-              <View style={styles.roleTag}>
-                <Text style={styles.roleTagText}>KAMPUS</Text>
-              </View>
-            </View>
+            <Text style={styles.universityName}>Universitas Muhammadiyah Malang</Text>
             <Text style={styles.appSubtitle}>
               Sistem Informasi Lost & Found Resmi Kampus
             </Text>
@@ -131,7 +124,7 @@ export default function WelcomeSplashScreen() {
 
         {/* Loading Indicator & Status Info */}
         <View style={styles.loadingSection}>
-          <ActivityIndicator size="small" color="#2563EB" />
+          <ActivityIndicator size="small" color="#0266B3" />
           <Text style={styles.statusText}>{statusText}</Text>
         </View>
       </View>
@@ -140,7 +133,7 @@ export default function WelcomeSplashScreen() {
       <View style={styles.footer}>
         <View style={styles.securityBadge}>
           <Ionicons name="shield-checkmark" size={14} color="#059669" />
-          <Text style={styles.securityText}>Sistem Terverifikasi & Terintegrasi Kampus</Text>
+          <Text style={styles.securityText}>Sistem Terverifikasi • Universitas Muhammadiyah Malang</Text>
         </View>
       </View>
     </View>
@@ -175,58 +168,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoBadge: {
-    width: 104,
-    height: 104,
-    borderRadius: 30,
+    width: 160,
+    height: 160,
+    borderRadius: 24,
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#2563EB',
+    shadowColor: '#0266B3',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12,
     shadowRadius: 16,
-    elevation: 8,
-    borderWidth: 1.5,
+    elevation: 6,
+    borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginBottom: 24,
+    marginBottom: 20,
+    padding: 10,
   },
   logoImage: {
-    width: 58,
-    height: 58,
+    width: '100%',
+    height: '100%',
   },
   titleWrap: {
     alignItems: 'center',
   },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  brandTitle: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: -0.8,
-  },
-  brandHighlight: {
-    color: '#2563EB',
-  },
-  roleTag: {
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  roleTagText: {
-    color: '#FFFFFF',
-    fontSize: 10,
+  universityName: {
+    fontSize: 16,
     fontWeight: '800',
-    letterSpacing: 0.8,
+    color: '#0F172A',
+    letterSpacing: -0.3,
+    textAlign: 'center',
   },
   appSubtitle: {
     fontSize: 13,
     color: '#64748B',
-    marginTop: 8,
+    marginTop: 6,
     textAlign: 'center',
     fontWeight: '500',
     maxWidth: width * 0.8,

@@ -17,6 +17,7 @@ import {
 
 import { AdminBottomNav } from '@/components/AdminBottomNav';
 import { AdminHeader } from '@/components/AdminHeader';
+import { ApiErrorMessage } from '@/components/ApiErrorMessage';
 import { useAuth } from '@/context/AuthContext';
 import { useCampusData } from '@/context/CampusDataContext';
 import { ClaimRequest, ClaimStatus } from '@/types';
@@ -37,6 +38,7 @@ export default function AdminClaimsScreen() {
   const [adminNotes, setAdminNotes] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showFullIdCard, setShowFullIdCard] = useState(false);
+  const [verifyError, setVerifyError] = useState<unknown>(null);
 
   const filteredClaims = claims.filter((c) => {
     if (filterStatus === 'Semua') return true;
@@ -61,15 +63,16 @@ export default function AdminClaimsScreen() {
 
     try {
       setIsProcessing(true);
+      setVerifyError(null);
       const res = await verifyClaim(selectedClaim.id, approved, adminNotes.trim());
       if (res.success) {
         Alert.alert('Sukses', res.message);
         setSelectedClaim(null);
       } else {
-        Alert.alert('Gagal', res.message || 'Terjadi kesalahan.');
+        setVerifyError(res.message || 'Terjadi kesalahan saat memverifikasi klaim.');
       }
     } catch (e) {
-      Alert.alert('Error', 'Gagal memproses verifikasi klaim.');
+      setVerifyError(e);
     } finally {
       setIsProcessing(false);
     }
@@ -96,7 +99,7 @@ export default function AdminClaimsScreen() {
 
       <AdminHeader
         title="Verifikasi Klaim Mahasiswa"
-        subtitle={`${claims.length} permohonan klaim tercatat`}
+        subtitle={`${claims.length} permohonan klaim • Universitas Muhammadiyah Malang`}
       />
 
       {/* Filter Tabs */}
@@ -296,6 +299,12 @@ export default function AdminClaimsScreen() {
                       </View>
                     )}
                   </View>
+
+                  {/* ApiErrorMessage jika verifikasi gagal */}
+                  <ApiErrorMessage
+                    error={verifyError}
+                    onDismiss={() => setVerifyError(null)}
+                  />
 
                   {/* Admin Notes Input */}
                   <View style={styles.sectionBox}>

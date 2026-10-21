@@ -16,6 +16,7 @@ import {
 
 import { AdminBottomNav } from '@/components/AdminBottomNav';
 import { AdminHeader } from '@/components/AdminHeader';
+import { ApiErrorMessage } from '@/components/ApiErrorMessage';
 import { ImagePickerButton } from '@/components/ImagePickerButton';
 import { CAMPUS_CATEGORIES } from '@/constants/initialData';
 import { useAuth } from '@/context/AuthContext';
@@ -45,8 +46,10 @@ export default function AdminCreateReportScreen() {
   const [reporter, setReporter] = useState(adminProfile.name);
   const [imageUri, setImageUri] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [apiError, setApiError] = useState<unknown>(null);
 
   const handleSubmit = async () => {
+    setApiError(null);
     if (!title.trim()) {
       Alert.alert('Form Belum Lengkap', 'Nama barang temuan wajib diisi.');
       return;
@@ -96,7 +99,7 @@ export default function AdminCreateReportScreen() {
         ]
       );
     } catch (e) {
-      Alert.alert('Error', 'Gagal menyimpan laporan barang.');
+      setApiError(e);
     } finally {
       setIsSubmitting(false);
     }
@@ -123,6 +126,13 @@ export default function AdminCreateReportScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Error message display */}
+        <ApiErrorMessage
+          error={apiError}
+          onRetry={handleSubmit}
+          onDismiss={() => setApiError(null)}
+        />
+
         {/* Tipe Laporan Toggle */}
         <View style={styles.typeToggleCard}>
           <Text style={styles.toggleCardLabel}>Jenis Laporan:</Text>

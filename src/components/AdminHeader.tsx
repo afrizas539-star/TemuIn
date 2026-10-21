@@ -51,11 +51,13 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
             <View style={styles.badgeRow}>
               <View style={styles.adminPill}>
                 <Ionicons name="shield" size={12} color="#818CF8" />
-                <Text style={styles.adminPillText}>PORTAL PETUGAS</Text>
+                <Text style={styles.adminPillText}>PETUGAS TEMUIN • UMM</Text>
               </View>
             </View>
             <Text style={styles.titleText}>{title}</Text>
-            {subtitle && <Text style={styles.subtitleText}>{subtitle}</Text>}
+            <Text style={styles.subtitleText}>
+              {subtitle || 'Universitas Muhammadiyah Malang'}
+            </Text>
           </View>
         </View>
 

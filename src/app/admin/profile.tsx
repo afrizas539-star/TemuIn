@@ -337,6 +337,32 @@ export default function AdminProfileScreen() {
           )}
         </View>
 
+        {/* Informasi Aplikasi TemuIn */}
+        <Text style={styles.sectionHeading}>Informasi Sistem</Text>
+        <View style={styles.appInfoCard}>
+          <View style={styles.appInfoLogoWrap}>
+            <Image
+              source={require('@/assets/images/logo-temuin.png')}
+              style={styles.appInfoLogo}
+              resizeMode="contain"
+            />
+          </View>
+          <View style={styles.appInfoDetails}>
+            <Text style={styles.appInfoTitle}>TemuIn Pengelola</Text>
+            <Text style={styles.appInfoTagline}>“Temukan • Laporkan • Bertemu”</Text>
+            <Text style={styles.appInfoUniversity}>Universitas Muhammadiyah Malang</Text>
+            <View style={styles.appInfoBadgeRow}>
+              <View style={styles.versionBadge}>
+                <Text style={styles.versionText}>v1.0.0 Admin Portal</Text>
+              </View>
+              <View style={styles.verifiedBadge}>
+                <Ionicons name="shield-checkmark" size={12} color="#059669" />
+                <Text style={styles.verifiedText}>Terotentikasi</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
         {/* Logout Button */}
         <TouchableOpacity
           style={styles.logoutBtn}
@@ -532,6 +558,101 @@ const styles = StyleSheet.create({
   saveBtnText: {
     color: "#FFFFFF",
     fontSize: 14,
+    fontWeight: "700",
+  },
+  sectionHeading: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginBottom: 10,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  appInfoCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    gap: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+    marginBottom: 14,
+  },
+  appInfoLogoWrap: {
+    width: 68,
+    height: 68,
+    borderRadius: 14,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    padding: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  appInfoLogo: {
+    width: "100%",
+    height: "100%",
+  },
+  appInfoDetails: {
+    flex: 1,
+  },
+  appInfoTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0F172A",
+    letterSpacing: -0.3,
+  },
+  appInfoTagline: {
+    fontSize: 11,
+    color: "#F58220",
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  appInfoUniversity: {
+    fontSize: 12,
+    color: "#0266B3",
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  appInfoBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 8,
+  },
+  versionBadge: {
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+  },
+  versionText: {
+    fontSize: 10,
+    color: "#0266B3",
+    fontWeight: "700",
+  },
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#ECFDF5",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+  },
+  verifiedText: {
+    fontSize: 10,
+    color: "#065F46",
     fontWeight: "700",
   },
   logoutBtn: {

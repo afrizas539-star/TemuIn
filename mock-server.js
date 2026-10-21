@@ -480,10 +480,70 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // ── 7. PROTECTED: GET /items ──
+  // ── 7. PROTECTED: GET /items & /items/:id ──
+  const itemDetailMatch = pathname.match(/^\/(?:api\/)?items\/([a-zA-Z0-9_-]+)$/);
+  if (itemDetailMatch && req.method === 'GET') {
+    const itemId = itemDetailMatch[1];
+    const item = db.items.find((i) => String(i.id) === itemId);
+    if (!item) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Barang tidak ditemukan' }));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, item }));
+    return;
+  }
+
   if ((pathname === '/items' || pathname === '/api/items') && req.method === 'GET') {
+    // Error simulation support
+    const sim = url.searchParams.get('simulate_error');
+    if (sim) {
+      const code = parseInt(sim, 10) || 500;
+      const errorMsg =
+        code === 503
+          ? 'Layanan sedang tidak tersedia. Silakan coba lagi nanti.'
+          : code === 429
+          ? 'Terlalu banyak permintaan. Silakan tunggu beberapa saat.'
+          : 'Terjadi kesalahan pada server.';
+      res.writeHead(code, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: errorMsg, code }));
+      return;
+    }
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, items: db.items }));
+    return;
+  }
+
+  // ── 7b. PROTECTED: POST /items (Tambah Laporan/Temuan) ──
+  if ((pathname === '/items' || pathname === '/api/items') && req.method === 'POST') {
+    getBody((err, payload) => {
+      if (err || !payload.title) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Judul dan data barang wajib diisi' }));
+        return;
+      }
+      const newItem = {
+        id: payload.id || `item-${Date.now()}`,
+        title: payload.title,
+        category: payload.category || 'Lainnya',
+        type: payload.type || 'lost',
+        status: payload.status || (payload.type === 'found' ? 'TERSEDIA' : 'DALAM PENCARIAN'),
+        description: payload.description || '',
+        location: payload.location || 'Area Kampus',
+        date: payload.date || new Date().toISOString().split('T')[0],
+        image: payload.image || '',
+        reporter: payload.reporter || decodedUser.name || 'Pengguna',
+        userId: payload.userId || decodedUser.sub,
+        faculty: payload.faculty || 'Universitas Muhammadiyah Malang',
+        createdAt: new Date().toISOString(),
+      };
+      db.items.unshift(newItem);
+      saveDatabase(db);
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, item: newItem }));
+    });
     return;
   }
 
@@ -491,6 +551,86 @@ const server = http.createServer((req, res) => {
   if ((pathname === '/claims' || pathname === '/api/claims') && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, claims: db.claims }));
+    return;
+  }
+
+  // ── 8b. PROTECTED: POST /claims (Ajukan Klaim) ──
+  if ((pathname === '/claims' || pathname === '/api/claims') && req.method === 'POST') {
+    getBody((err, payload) => {
+      if (err || !payload.itemId || !payload.proofDetails) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Item ID dan bukti kepemilikan wajib diisi' }));
+        return;
+      }
+
+      // Check if duplicate claim by same user
+      const exists = db.claims.find(
+        (c) => c.itemId === payload.itemId && c.userId === decodedUser.sub && c.status === 'Menunggu Verifikasi'
+      );
+      if (exists) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Pengajuan klaim untuk barang ini sedang diproses' }));
+        return;
+      }
+
+      const newClaim = {
+        id: `claim-${Date.now()}`,
+        itemId: payload.itemId,
+        itemTitle: payload.itemTitle || '',
+        itemCategory: payload.itemCategory || '',
+        itemImage: payload.itemImage || '',
+        userId: decodedUser.sub,
+        studentName: payload.studentName || decodedUser.name,
+        studentNim: payload.studentNim || '',
+        studentFaculty: payload.studentFaculty || 'Universitas Muhammadiyah Malang',
+        studentPhone: payload.studentPhone || '',
+        proofDetails: payload.proofDetails,
+        idCardImage: payload.idCardImage || '',
+        status: 'Menunggu Verifikasi',
+        submittedAt: new Date().toISOString(),
+      };
+      db.claims.unshift(newClaim);
+      saveDatabase(db);
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, claim: newClaim }));
+    });
+    return;
+  }
+
+  // ── 8c. PROTECTED: PUT /claims/:id/verify (Verifikasi Klaim - ADMIN ONLY) ──
+  const claimVerifyMatch = pathname.match(/^\/(?:api\/)?claims\/([a-zA-Z0-9_-]+)\/verify$/);
+  if (claimVerifyMatch && req.method === 'PUT') {
+    // 403 Forbidden check if user is not admin
+    if (decodedUser.role !== 'admin') {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          success: false,
+          error: 'Anda tidak memiliki izin untuk melakukan tindakan ini.',
+          code: 403,
+        })
+      );
+      return;
+    }
+
+    const claimId = claimVerifyMatch[1];
+    const claim = db.claims.find((c) => c.id === claimId);
+    if (!claim) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Data klaim tidak ditemukan' }));
+      return;
+    }
+
+    getBody((err, payload) => {
+      const isApproved = payload.approved === true;
+      claim.status = isApproved ? 'Disetujui' : 'Ditolak';
+      claim.verifiedAt = new Date().toISOString();
+      claim.verifiedBy = decodedUser.name;
+      claim.adminNotes = payload.adminNotes || '';
+      saveDatabase(db);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, claim }));
+    });
     return;
   }
 
@@ -521,7 +661,7 @@ const server = http.createServer((req, res) => {
 
   // 404
   res.writeHead(404, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ error: 'Endpoint tidak ditemukan' }));
+  res.end(JSON.stringify({ success: false, error: 'Endpoint tidak ditemukan' }));
 });
 
 server.listen(PORT, '0.0.0.0', () => {

@@ -1,4 +1,4 @@
-﻿import { STATUS_COLORS } from '@/constants/initialData';
+import { INITIAL_CAMPUS_ITEMS, STATUS_COLORS } from '@/constants/initialData';
 import {
   addClaimToFirestore,
   addItemToFirestore,
@@ -28,7 +28,7 @@ import {
  */
 
 // State lokal (cache) yang diperbarui via realtime listener
-let _items: CampusItem[] = [];
+let _items: CampusItem[] = [...INITIAL_CAMPUS_ITEMS];
 let _claims: ClaimRequest[] = [];
 let _listeners: Array<(state: { items: CampusItem[]; claims: ClaimRequest[] }) => void> = [];
 
@@ -70,7 +70,14 @@ class CampusRepository {
 
   async getAllItems(): Promise<CampusItem[]> {
     if (_items.length > 0) return _items;
-    _items = await getAllItemsFromFirestore();
+    try {
+      const fsItems = await getAllItemsFromFirestore();
+      if (fsItems && fsItems.length > 0) {
+        _items = fsItems;
+      }
+    } catch (e) {
+      console.warn('[CampusRepository] Fallback items cache:', e);
+    }
     return _items;
   }
 
@@ -410,8 +417,22 @@ class CampusRepository {
   }
 
   async refreshData() {
-    _items = await getAllItemsFromFirestore();
-    _claims = await getAllClaimsFromFirestore();
+    try {
+      const fsItems = await getAllItemsFromFirestore();
+      if (fsItems && fsItems.length > 0) {
+        _items = fsItems;
+      }
+    } catch (e) {
+      console.warn('[CampusRepository] Fallback items cache:', e);
+    }
+    try {
+      const fsClaims = await getAllClaimsFromFirestore();
+      if (fsClaims && fsClaims.length > 0) {
+        _claims = fsClaims;
+      }
+    } catch (e) {
+      console.warn('[CampusRepository] Fallback claims cache:', e);
+    }
     _notifyListeners();
   }
 }

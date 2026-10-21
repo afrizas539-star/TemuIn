@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AdminBottomNav } from "@/components/AdminBottomNav";
 import { AdminHeader } from "@/components/AdminHeader";
+import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useAuth } from "@/context/AuthContext";
 import { useCampusData } from "@/context/CampusDataContext";
@@ -70,11 +71,16 @@ export default function AdminDashboardScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Indikator Status Koneksi Online/Offline Backend */}
+        <View style={styles.connectionStatusWrap}>
+          <ConnectionStatus showOfflineNotice={true} />
+        </View>
+
         {/* Admin Announcement Banner */}
         <View style={styles.adminBanner}>
           <View style={styles.bannerHeader}>
             <View style={styles.urgentDot} />
-            <Text style={styles.bannerTag}>PENGUMUMAN RESMI SISTEM</Text>
+            <Text style={styles.bannerTag}>UNIVERSITAS MUHAMMADIYAH MALANG</Text>
           </View>
           <Text style={styles.bannerTitle}>
             SOP Serah Terima Barang & Identifikasi KTM
@@ -292,6 +298,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     paddingBottom: 24,
+  },
+  connectionStatusWrap: {
+    marginBottom: 12,
   },
   adminBanner: {
     backgroundColor: "#1E293B",

@@ -16,9 +16,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ApiErrorMessage } from '@/components/ApiErrorMessage';
 import { ImagePickerButton } from '@/components/ImagePickerButton';
 import { useAuth } from '@/context/AuthContext';
 import { useCampusData } from '@/context/CampusDataContext';
+import { AppApiError } from '@/services/api/httpErrors';
 
 export default function ClaimItemScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -37,6 +39,7 @@ export default function ClaimItemScreen() {
   const [proofDetails, setProofDetails] = useState('');
   const [idCardImage, setIdCardImage] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [apiError, setApiError] = useState<unknown>(null);
 
   // Guard: redirect jika belum login
   useEffect(() => {
@@ -80,10 +83,20 @@ export default function ClaimItemScreen() {
   // Guard: barang tidak ditemukan
   if (!item) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <Text style={styles.errorText}>Barang tidak ditemukan.</Text>
+      <View style={[styles.container, styles.center, { padding: 24 }]}>
+        <StatusBar style="dark" />
+        <ApiErrorMessage
+          error={
+            new AppApiError({
+              statusCode: 404,
+              message: 'HTTP 404 — Barang yang kamu cari tidak ditemukan.',
+            })
+          }
+          onRetry={() => router.replace('/explore')}
+          containerStyle={{ width: '100%' }}
+        />
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backBtnText}>Kembali</Text>
+          <Text style={styles.backBtnText}>Kembali ke Katalog</Text>
         </TouchableOpacity>
       </View>
     );
@@ -159,10 +172,10 @@ export default function ClaimItemScreen() {
           ]
         );
       } else {
-        Alert.alert('Gagal', res.message || 'Terjadi kesalahan saat mengirim klaim.');
+        setApiError(res.message || 'Terjadi kesalahan saat memproses klaim.');
       }
     } catch (e) {
-      Alert.alert('Error', 'Terjadi kesalahan koneksi data.');
+      setApiError(e);
     } finally {
       setIsSubmitting(false);
     }
@@ -193,7 +206,7 @@ export default function ClaimItemScreen() {
         </TouchableOpacity>
         <View style={styles.headerTitleWrap}>
           <Text style={styles.headerTitle}>Formulir Klaim Barang</Text>
-          <Text style={styles.headerSub}>Verifikasi kepemilikan civitas</Text>
+          <Text style={styles.headerSub}>Universitas Muhammadiyah Malang</Text>
         </View>
       </View>
 
@@ -202,6 +215,13 @@ export default function ClaimItemScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Error message jika pengajuan klaim gagal */}
+        <ApiErrorMessage
+          error={apiError}
+          onRetry={handleSubmit}
+          onDismiss={() => setApiError(null)}
+        />
+
         {/* Item Summary Card */}
         <View style={styles.itemSummaryCard}>
           <Image source={{ uri: item.image }} style={styles.itemThumb} resizeMode="cover" />

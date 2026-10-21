@@ -19,14 +19,14 @@ export const CampusBanner: React.FC<CampusBannerProps> = ({ onPressInfo }) => {
         <View style={styles.badgeRow}>
           <View style={styles.livePill}>
             <View style={styles.pulseDot} />
-            <Text style={styles.liveText}>POSKO KEAMANAN KAMPUS</Text>
+            <Text style={styles.liveText}>POSKO KEAMANAN UNIVERSITAS MUHAMMADIYAH MALANG</Text>
           </View>
           <Text style={styles.phoneHint}>Ext. 101</Text>
         </View>
 
         <Text style={styles.title}>Barang Tertinggal atau Menemukan Barang?</Text>
         <Text style={styles.subtitle}>
-          Demi keamanan civitas akademika, seluruh laporan dan serah terima fisik barang wajib berkoordinasi langsung dengan Petugas/Pos Satpam resmi.
+          Demi keamanan civitas akademika Universitas Muhammadiyah Malang, seluruh laporan dan serah terima fisik barang berkoordinasi melalui TemuIn dan Pos Satpam resmi.
         </Text>
 
         <TouchableOpacity
@@ -34,8 +34,8 @@ export const CampusBanner: React.FC<CampusBannerProps> = ({ onPressInfo }) => {
           style={styles.actionBtn}
           onPress={onPressInfo}
         >
-          <Ionicons name="information-circle" size={16} color="#2563EB" />
-          <Text style={styles.actionBtnText}>Panduan Lapor & Posko Satpam</Text>
+          <Ionicons name="information-circle" size={16} color="#0266B3" />
+          <Text style={styles.actionBtnText}>Panduan TemuIn & Pos Satpam</Text>
         </TouchableOpacity>
       </View>
     </View>

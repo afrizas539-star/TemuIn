@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'; // <-- Tambahkan useEffect di sini
 import {
   FlatList,
   Platform,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -13,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ApiErrorMessage } from '@/components/ApiErrorMessage';
 import { ItemCard } from '@/components/ItemCard';
 import { StudentBottomNav } from '@/components/StudentBottomNav';
 import { CAMPUS_CATEGORIES } from '@/constants/initialData';
@@ -24,7 +26,7 @@ export default function ExploreScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { isAuthenticated, isLoadingAuth } = useAuth();
-  const { items } = useCampusData();
+  const { items, refreshData } = useCampusData();
 
   useEffect(() => {
     if (!isLoadingAuth && !isAuthenticated) {
@@ -36,6 +38,20 @@ export default function ExploreScreen() {
   const [selectedCategory, setSelectedCategory] = useState('Semua');
   const [selectedFaculty, setSelectedFaculty] = useState('Semua Fakultas');
   const [selectedType, setSelectedType] = useState<'all' | 'lost' | 'found'>('all');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<unknown>(null);
+
+  const handleRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      setLoadError(null);
+      await refreshData();
+    } catch (err) {
+      setLoadError(err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   // Hanya barang temuan dan barang hilang yang sudah disetujui admin
   const publicItems = items.filter(
@@ -73,7 +89,7 @@ export default function ExploreScreen() {
       >
         <Text style={styles.headerTitle}>Cari & Eksplorasi</Text>
         <Text style={styles.headerSubtitle}>
-          Temukan barang hilang atau temuan di area kampus
+          Temukan barang hilang atau temuan di Universitas Muhammadiyah Malang
         </Text>
 
         {/* Search Bar */}
@@ -171,12 +187,30 @@ export default function ExploreScreen() {
         )}
       </View>
 
+      {/* Error Message jika pengambilan data gagal */}
+      {loadError ? (
+        <View style={{ paddingHorizontal: 16 }}>
+          <ApiErrorMessage
+            error={loadError}
+            onRetry={handleRefresh}
+            onDismiss={() => setLoadError(null)}
+          />
+        </View>
+      ) : null}
+
       {/* Items List */}
       <FlatList
         data={filteredItems}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={['#0266B3']}
+          />
+        }
         renderItem={({ item }) => (
           <View style={styles.cardWrap}>
             <ItemCard item={item} />
