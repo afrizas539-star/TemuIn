@@ -1,11 +1,9 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import { Stack } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider } from '@/context/AuthContext';
 import { CampusDataProvider } from '@/context/CampusDataContext';
 import { NetworkProvider } from '@/context/NetworkContext';
@@ -44,6 +42,12 @@ export default function RootLayout() {
               <Stack.Screen name="profile" />
               <Stack.Screen
                 name="report-lost"
+                options={{
+                  animation: 'slide_from_bottom',
+                }}
+              />
+              <Stack.Screen
+                name="camera"
                 options={{
                   animation: 'slide_from_bottom',
                 }}

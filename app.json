@@ -7,11 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "projectmobile",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#208AEF"
-    },
     "ios": {
       "icon": "./assets/expo.icon"
     },
@@ -38,7 +33,13 @@
           "imageWidth": 76
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "TemuIn memakai kamera untuk memotret barang yang hilang atau ditemukan."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

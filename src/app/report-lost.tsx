@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -35,6 +35,8 @@ export default function StudentReportLostScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { reportLostItem } = useCampusData();
+  // Parameter dari layar kamera (Task 03 - Integrasi antar layar)
+  const params = useLocalSearchParams<{ photoUri?: string }>();
 
   // Form states
   const [title, setTitle] = useState('');
@@ -51,6 +53,14 @@ export default function StudentReportLostScreen() {
   const [imageUri, setImageUri] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState<unknown>(null);
+
+  // Menerima hasil foto dari layar kamera (Task 03)
+  useEffect(() => {
+    if (params.photoUri) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setImageUri(params.photoUri);
+    }
+  }, [params.photoUri]);
 
   const handleSubmit = async () => {
     setApiError(null);
@@ -293,11 +303,30 @@ export default function StudentReportLostScreen() {
           {/* Foto Barang Jika Ada */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Foto Barang (Jika Tersedia)</Text>
+
+            {/* Tombol Ambil Foto Langsung dari Sensor Kamera (Task 01 - 03) */}
+            <TouchableOpacity
+              style={styles.cameraPickerBtn}
+              onPress={() => router.push('/camera' as any)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.cameraIconBox}>
+                <Ionicons name="camera" size={20} color="#2563EB" />
+              </View>
+              <View style={styles.cameraBtnTextWrap}>
+                <Text style={styles.cameraBtnTitle}>Ambil Foto dengan Kamera</Text>
+                <Text style={styles.cameraBtnSubtitle}>
+                  Potret barang langsung menggunakan sensor kamera
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+            </TouchableOpacity>
+
             <ImagePickerButton
               imageUri={imageUri}
               onImageSelected={setImageUri}
               onImageRemoved={() => setImageUri('')}
-              title="Unggah Foto Barang"
+              title="Unggah Foto dari Galeri"
               subtitle="Pilih foto barang jika Anda pernah memfotonya"
             />
           </View>
@@ -472,5 +501,37 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
+  },
+  cameraPickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+    gap: 12,
+  },
+  cameraIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#DBEAFE',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cameraBtnTextWrap: {
+    flex: 1,
+  },
+  cameraBtnTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1D4ED8',
+    marginBottom: 2,
+  },
+  cameraBtnSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
   },
 });
