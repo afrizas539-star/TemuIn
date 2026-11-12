@@ -76,6 +76,7 @@ export interface CampusItem {
   foundItemId?: string;
   linkedLostItemId?: string;
   additionalInfo?: string;
+  isResolved?: boolean;
 }
 
 export interface LostItem {

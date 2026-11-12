@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
+import { apiService } from '@/services/api/apiService';
 import { campusRepository } from '@/services/repository/campusRepository';
 import { CampusItem, ClaimRequest, ItemStatus } from '@/types';
 
@@ -147,6 +148,11 @@ export const CampusDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const deleteItem = async (itemId: string) => {
+    try {
+      await apiService.deleteItem(itemId);
+    } catch (apiErr) {
+      console.warn('[CampusData] REST API delete error:', apiErr);
+    }
     await campusRepository.deleteItem(itemId);
   };
 

@@ -232,46 +232,48 @@ export default function ExploreScreen() {
   );
 }
 
+import { AppRadius, Colors, Typography } from '@/constants/theme';
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Colors.light.background,
   },
   header: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.light.surface,
     paddingHorizontal: 16,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: Colors.light.border,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: Typography.size.title,
     fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.4,
+    color: Colors.light.text,
+    letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 12,
-    color: '#64748B',
+    fontSize: Typography.size.caption,
+    color: Colors.light.textSecondary,
     marginTop: 2,
     marginBottom: 12,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
+    backgroundColor: Colors.light.surfaceMuted,
+    borderRadius: AppRadius.small,
     paddingHorizontal: 12,
     height: 44,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Colors.light.border,
     gap: 8,
     marginBottom: 12,
   },
   searchInput: {
     flex: 1,
     fontSize: 13,
-    color: '#0F172A',
+    color: Colors.light.text,
     paddingVertical: 0,
   },
   typeFilterRow: {
@@ -281,25 +283,28 @@ const styles = StyleSheet.create({
   typeBtn: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    borderRadius: AppRadius.small,
+    backgroundColor: Colors.light.surfaceMuted,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
   },
   typeBtnActive: {
-    backgroundColor: '#0F172A',
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primary,
   },
   typeBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748B',
+    color: Colors.light.textSecondary,
   },
   typeBtnTextActive: {
     color: '#FFFFFF',
   },
   categoryBarWrap: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.light.surface,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: Colors.light.border,
   },
   categoryScroll: {
     paddingHorizontal: 16,
@@ -308,19 +313,19 @@ const styles = StyleSheet.create({
   catChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#F8FAFC',
+    borderRadius: AppRadius.small,
+    backgroundColor: Colors.light.surfaceMuted,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Colors.light.border,
   },
   catChipActive: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primary,
   },
   catChipText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#64748B',
+    color: Colors.light.textSecondary,
   },
   catChipTextActive: {
     color: '#FFFFFF',
@@ -334,16 +339,16 @@ const styles = StyleSheet.create({
   },
   resultsCount: {
     fontSize: 12,
-    color: '#64748B',
+    color: Colors.light.textSecondary,
   },
   resultsBold: {
     fontWeight: '700',
-    color: '#0F172A',
+    color: Colors.light.text,
   },
   resetFilterText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#2563EB',
+    color: Colors.light.primary,
   },
   listContent: {
     paddingBottom: 24,
@@ -360,12 +365,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#334155',
+    color: Colors.light.text,
     marginTop: 12,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: Colors.light.textSecondary,
     marginTop: 4,
     textAlign: 'center',
   },

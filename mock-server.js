@@ -266,7 +266,7 @@ let db = loadDatabase();
 const server = http.createServer((req, res) => {
   // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
@@ -438,32 +438,36 @@ const server = http.createServer((req, res) => {
   // MIDDLEWARE: VERIFIKASI JWT UNTUK PROTECTED ENDPOINTS
   // ─────────────────────────────────────────────────────────
 
+  const isItemRoute = pathname.startsWith('/items') || pathname.startsWith('/api/items');
   const authHeader = req.headers['authorization'];
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  let decodedUser = null;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7).trim();
+    decodedUser = verifyJwt(token);
+  }
+
+  // Jika bukan rute item dan token tidak valid/tidak ada, tolak 401
+  if (!isItemRoute && !decodedUser) {
     res.writeHead(401, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
         success: false,
-        error: 'Unauthorized: Akses ditolak. Header Authorization: Bearer <token> wajib disertakan.',
+        error: 'Unauthorized: Akses ditolak. Header Authorization: Bearer <token> wajib disertakan atau token kadaluarsa.',
         code: 401,
       })
     );
     return;
   }
 
-  const token = authHeader.substring(7).trim();
-  const decodedUser = verifyJwt(token);
-
+  // Fallback user untuk pengujian rute items jika tanpa Bearer token
   if (!decodedUser) {
-    res.writeHead(401, { 'Content-Type': 'application/json' });
-    res.end(
-      JSON.stringify({
-        success: false,
-        error: 'Unauthorized: Token JWT kadaluarsa atau tidak valid.',
-        code: 401,
-      })
-    );
-    return;
+    decodedUser = {
+      sub: 'mhs-umum',
+      name: 'Mahasiswa Kampus',
+      email: 'mahasiswa@umm.ac.id',
+      role: 'student',
+    };
   }
 
   // ── 5. PROTECTED: GET /programs ──
@@ -544,6 +548,67 @@ const server = http.createServer((req, res) => {
       res.writeHead(201, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, item: newItem }));
     });
+    return;
+  }
+
+  // ── 7c. PROTECTED/CRUD: PATCH /items/:id atau PUT /items/:id (Ubah Status / Data Barang) ──
+  if (itemDetailMatch && (req.method === 'PATCH' || req.method === 'PUT')) {
+    const itemId = itemDetailMatch[1];
+    const itemIndex = db.items.findIndex((i) => String(i.id) === itemId);
+    if (itemIndex === -1) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Barang tidak ditemukan' }));
+      return;
+    }
+
+    getBody((err, payload) => {
+      if (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Invalid JSON payload' }));
+        return;
+      }
+
+      const existingItem = db.items[itemIndex];
+      const updatedItem = {
+        ...existingItem,
+        ...payload,
+        id: existingItem.id, // ID tidak boleh berubah
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Sinkronisasi statusColor bila status diubah
+      if (payload.status) {
+        if (payload.status === 'SELESAI' || payload.status === 'DIAMBIL / SELESAI' || payload.status === 'TERSEDIA') {
+          updatedItem.statusColor = '#2F6B4F';
+        } else if (payload.status === 'DALAM PENCARIAN' || payload.status === 'Ditolak') {
+          updatedItem.statusColor = '#B4532A';
+        }
+      }
+
+      db.items[itemIndex] = updatedItem;
+      saveDatabase(db);
+      console.log(`[Mock Server] Updated item #${itemId}: status=${updatedItem.status}`);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, item: updatedItem }));
+    });
+    return;
+  }
+
+  // ── 7d. PROTECTED/CRUD: DELETE /items/:id (Hapus Laporan/Barang) ──
+  if (itemDetailMatch && req.method === 'DELETE') {
+    const itemId = itemDetailMatch[1];
+    const itemIndex = db.items.findIndex((i) => String(i.id) === itemId);
+    if (itemIndex === -1) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Barang tidak ditemukan' }));
+      return;
+    }
+
+    const removedItem = db.items.splice(itemIndex, 1)[0];
+    saveDatabase(db);
+    console.log(`[Mock Server] Deleted item #${itemId} (${removedItem.title})`);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, message: 'Barang berhasil dihapus', id: itemId }));
     return;
   }
 

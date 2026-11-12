@@ -484,6 +484,28 @@ class ApiService {
   }
 
   /**
+   * PATCH /api/items/:id (Ubah Status / Data Barang)
+   */
+  async patchItem(id: string, updates: Partial<CampusItem>): Promise<CampusItem> {
+    const response = await this.fetchWithTimeout(`/api/items/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+    const json = await response.json();
+    const raw = json.item || json;
+    return mapCampusItemDTOToModel(raw);
+  }
+
+  /**
+   * DELETE /api/items/:id (Hapus Barang)
+   */
+  async deleteItem(id: string): Promise<void> {
+    await this.fetchWithTimeout(`/api/items/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
    * GET /api/claims (Protected Endpoint)
    */
   async fetchClaims(): Promise<ClaimRequest[]> {

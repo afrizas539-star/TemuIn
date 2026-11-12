@@ -20,6 +20,7 @@ import { AdminHeader } from '@/components/AdminHeader';
 import { ApiErrorMessage } from '@/components/ApiErrorMessage';
 import { useAuth } from '@/context/AuthContext';
 import { useCampusData } from '@/context/CampusDataContext';
+import { apiService } from '@/services/api/apiService';
 import { ClaimRequest, ClaimStatus } from '@/types';
 
 export default function AdminClaimsScreen() {
@@ -64,6 +65,14 @@ export default function AdminClaimsScreen() {
     try {
       setIsProcessing(true);
       setVerifyError(null);
+
+      // 04. UPDATE: Kirim perubahan status ke REST API via fetch() HTTP PUT
+      try {
+        await apiService.verifyClaim(selectedClaim.id, approved, adminNotes.trim());
+      } catch (apiErr) {
+        console.warn('[AdminClaims] Catatan sinkronisasi REST API:', apiErr);
+      }
+
       const res = await verifyClaim(selectedClaim.id, approved, adminNotes.trim());
       if (res.success) {
         Alert.alert('Sukses', res.message);

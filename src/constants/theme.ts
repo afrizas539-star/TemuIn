@@ -1,40 +1,107 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * ============================================================
+ * TEMUIN DESIGN TOKENS (Sistem Token Desain Alami)
+ * ============================================================
+ * Mengikuti aturan desain-ui-natural:
+ * - Warna utama bersumber dari logo TemuIn UMM (#0266B3)
+ * - Netral hangat (kertas alami #FAF7F2, bukan slate-biru dingin)
+ * - Tinta hangat (#1F2A2E, teks sekunder #6B6F68)
+ * - Semantik: Sukses (#2F6B4F), Peringatan/Bahaya (#B4532A)
+ * - Radius konsisten: 2 nilai (small: 8, medium: 14)
+ * - Skala tipografi terstruktur: 12, 14, 16, 20, 28
  */
 
 import "@/global.css";
-
 import { Platform } from "react-native";
 
 export const Colors = {
   light: {
-    text: "#000000",
-    background: "#434a9b",
-    backgroundElement: "#3d3d59",
-    backgroundSelected: "#4f5781",
-    textSecondary: "#60646C",
+    // Kanvas & Permukaan
+    background: "#FAF7F2",
+    surface: "#FFFFFF",
+    surfaceMuted: "#F3EFEA",
+    backgroundElement: "#F3EFEA",
+    backgroundSelected: "#EAE4DC",
+
+    // Garis & Pembatas (Hairline border tipis)
+    border: "#E6E0D6",
+    borderMuted: "#EFEBE4",
+
+    // Tipografi Tinta Alami
+    text: "#1F2A2E",
+    textSecondary: "#6B6F68",
+    textMuted: "#9A9E96",
+
+    // Identitas Logo TemuIn UMM
+    primary: "#0266B3",
+    primaryHover: "#005291",
+    primaryLight: "#E8F2FA",
+
+    // Warna Semantik Fungsional
+    danger: "#B4532A",
+    dangerLight: "#FBEEEA",
+    warning: "#C27803",
+    warningLight: "#FEF6E9",
+    success: "#2F6B4F",
+    successLight: "#EBF4EF",
   },
   dark: {
-    text: "#ffffff",
-    background: "#751212",
-    backgroundElement: "#1c8461",
-    backgroundSelected: "#2E3135",
-    textSecondary: "#60782e",
+    background: "#181C1D",
+    surface: "#222728",
+    surfaceMuted: "#2C3132",
+    backgroundElement: "#2C3132",
+    backgroundSelected: "#383E3F",
+
+    border: "#3A4041",
+    borderMuted: "#2E3334",
+
+    text: "#F5F3EF",
+    textSecondary: "#B2B5AF",
+    textMuted: "#7F837E",
+
+    primary: "#3B8FD9",
+    primaryHover: "#2A7BC4",
+    primaryLight: "#1B2C3C",
+
+    danger: "#E06D44",
+    dangerLight: "#3D251C",
+    warning: "#E5A030",
+    warningLight: "#3D2F18",
+    success: "#4E9B73",
+    successLight: "#1C3326",
   },
 } as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
+export const AppRadius = {
+  small: 8,
+  medium: 14,
+  full: 9999,
+} as const;
+
+export const Typography = {
+  size: {
+    caption: 12,
+    body: 14,
+    subtitle: 16,
+    title: 20,
+    hero: 28,
+  },
+  lineHeight: {
+    caption: 16,
+    body: 20,
+    subtitle: 22,
+    title: 26,
+    hero: 34,
+  },
+} as const;
+
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: "system-ui",
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: "ui-serif",
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: "ui-rounded",
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: "ui-monospace",
   },
   default: {

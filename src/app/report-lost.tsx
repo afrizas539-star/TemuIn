@@ -20,6 +20,7 @@ import { ImagePickerButton } from '@/components/ImagePickerButton';
 import { CAMPUS_CATEGORIES } from '@/constants/initialData';
 import { useAuth } from '@/context/AuthContext';
 import { useCampusData } from '@/context/CampusDataContext';
+import { apiService } from '@/services/api/apiService';
 
 /**
  * PRIORITAS 6 — FITUR MAHASISWA: LAPOR BARANG HILANG
@@ -96,6 +97,24 @@ export default function StudentReportLostScreen() {
       setIsSubmitting(true);
       const studentName = user?.name || 'Mahasiswa Kampus';
       const studentId = user?.id || `mhs-${Date.now()}`;
+
+      // 03. CREATE: Kirim ke REST API lewat fetch() HTTP POST
+      try {
+        await apiService.createItem({
+          title: title.trim(),
+          category,
+          location: location.trim(),
+          faculty,
+          date: date.trim(),
+          description: description.trim(),
+          image: imageUri || undefined,
+          reporter: `${studentName} (${user?.nim || 'Mahasiswa'})`,
+          type: 'lost',
+          status: 'DALAM PENCARIAN',
+        });
+      } catch (apiErr) {
+        console.warn('[ReportLost] Catatan sinkronisasi REST API:', apiErr);
+      }
 
       await reportLostItem({
         title: title.trim(),

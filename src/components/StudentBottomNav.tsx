@@ -12,6 +12,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useCampusData } from '@/context/CampusDataContext';
 
+import { Colors } from '@/constants/theme';
+
 interface StudentBottomNavProps {
   activeTab: 'home' | 'explore' | 'claims' | 'profile';
 }
@@ -20,6 +22,7 @@ export const StudentBottomNav: React.FC<StudentBottomNavProps> = ({ activeTab })
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { claims } = useCampusData();
+  const theme = Colors.light;
 
   const pendingClaimsCount = claims.filter((c) => c.status === 'Menunggu Verifikasi').length;
 
@@ -82,7 +85,7 @@ export const StudentBottomNav: React.FC<StudentBottomNavProps> = ({ activeTab })
                 <Ionicons
                   name={isActive ? tab.iconFilled : tab.iconOutline}
                   size={22}
-                  color={isActive ? '#2563EB' : '#64748B'}
+                  color={isActive ? theme.primary : theme.textSecondary}
                 />
                 {tab.badge !== undefined && (
                   <View style={styles.badge}>
@@ -103,15 +106,10 @@ export const StudentBottomNav: React.FC<StudentBottomNavProps> = ({ activeTab })
 
 const styles = StyleSheet.create({
   navContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.light.surface,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: Colors.light.border,
     paddingTop: 8,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 8,
   },
   tabRow: {
     flexDirection: 'row',
@@ -132,18 +130,18 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 11,
     fontWeight: '500',
-    color: '#64748B',
+    color: Colors.light.textSecondary,
     marginTop: 4,
   },
   tabLabelActive: {
-    color: '#2563EB',
+    color: Colors.light.primary,
     fontWeight: '700',
   },
   badge: {
     position: 'absolute',
     top: -4,
     right: -10,
-    backgroundColor: '#DC2626',
+    backgroundColor: Colors.light.danger,
     borderRadius: 9,
     minWidth: 18,
     height: 18,

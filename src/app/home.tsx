@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Modal,
@@ -44,8 +45,15 @@ export default function StudentHomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, isAuthenticated, role, isLoadingAuth } = useAuth();
-  const { items, isLoading, refreshData } = useCampusData();
+  const { items, isLoading, refreshData, deleteItem } = useCampusData();
   const { connectionState } = useNetwork();
+
+  // 02. Loading Indicator (STATE)
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    setLoading(isLoading);
+  }, [isLoading]);
 
   // Route Protection (Wajib Login & Role Student)
   useEffect(() => {
@@ -65,9 +73,37 @@ export default function StudentHomeScreen() {
   const [showPoskoModal, setShowPoskoModal] = useState(false);
 
   const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await refreshData();
-    setIsRefreshing(false);
+    try {
+      setIsRefreshing(true);
+      await refreshData();
+    } catch (err) {
+      console.warn('[Home] Refresh error:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // 05. DELETE & Error Handling: Batalkan/Hapus Laporan Milik Mahasiswa
+  const handleDeleteReport = (report: (typeof myReports)[0]) => {
+    Alert.alert(
+      'Hapus Laporan',
+      `Apakah Anda yakin ingin membatalkan laporan "${report.title}"?`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Hapus',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteItem(report.id);
+              Alert.alert('Berhasil', 'Laporan telah dihapus.');
+            } catch (err: any) {
+              Alert.alert('Gagal Menghapus', err.message || 'Terjadi kesalahan pada server.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Laporan kehilangan milik mahasiswa yang sedang login
@@ -213,14 +249,14 @@ export default function StudentHomeScreen() {
           onPress={() => router.push('/report-lost')}
           activeOpacity={0.8}
         >
-          <View style={[styles.shortcutIconCircle, { backgroundColor: '#FEE2E2' }]}>
-            <Ionicons name="alert-circle" size={20} color="#DC2626" />
+          <View style={[styles.shortcutIconCircle, { backgroundColor: '#FBEEEA' }]}>
+            <Ionicons name="alert-circle" size={20} color="#B4532A" />
           </View>
           <View style={styles.shortcutTextWrap}>
             <Text style={styles.shortcutTitle}>Lapor Kehilangan</Text>
             <Text style={styles.shortcutSubtitle}>Buat laporan barang tertinggal</Text>
           </View>
-          <Ionicons name="chevron-forward" size={16} color="#DC2626" />
+          <Ionicons name="chevron-forward" size={16} color="#B4532A" />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -228,14 +264,14 @@ export default function StudentHomeScreen() {
           onPress={() => router.push('/explore')}
           activeOpacity={0.8}
         >
-          <View style={[styles.shortcutIconCircle, { backgroundColor: '#DCFCE7' }]}>
-            <Ionicons name="search" size={20} color="#15803D" />
+          <View style={[styles.shortcutIconCircle, { backgroundColor: '#EBF4EF' }]}>
+            <Ionicons name="search" size={20} color="#2F6B4F" />
           </View>
           <View style={styles.shortcutTextWrap}>
             <Text style={styles.shortcutTitle}>Explore Barang</Text>
             <Text style={styles.shortcutSubtitle}>Katalog barang posko kampus</Text>
           </View>
-          <Ionicons name="chevron-forward" size={16} color="#15803D" />
+          <Ionicons name="chevron-forward" size={16} color="#2F6B4F" />
         </TouchableOpacity>
       </View>
 
@@ -251,28 +287,40 @@ export default function StudentHomeScreen() {
           </View>
 
           {myReports.map((report) => (
-            <TouchableOpacity
-              key={report.id}
-              style={styles.myReportCard}
-              onPress={() => router.push(`/item/${report.id}` as any)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.myReportHeader}>
-                <Text style={styles.myReportTitle} numberOfLines={1}>
-                  {report.title}
+            <View key={report.id} style={styles.myReportCard}>
+              <TouchableOpacity
+                style={styles.myReportMainTap}
+                onPress={() => router.push(`/item/${report.id}` as any)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.myReportHeader}>
+                  <Text style={styles.myReportTitle} numberOfLines={1}>
+                    {report.title}
+                  </Text>
+                  <StatusBadge
+                    status={
+                      report.verificationStatus === 'Menunggu Verifikasi'
+                        ? 'Menunggu Verifikasi'
+                        : report.status
+                    }
+                    size="small"
+                  />
+                </View>
+                <Text style={styles.myReportMeta}>
+                  📍 {report.location} • {report.date}
                 </Text>
-                <StatusBadge
-                  status={
-                    report.verificationStatus === 'Menunggu Verifikasi'
-                      ? 'Menunggu Verifikasi'
-                      : report.status
-                  }
-                  size="small"
-                />
-              </View>
-              <Text style={styles.myReportMeta}>
-                📍 {report.location} • {report.date}
-              </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.myReportDeleteBtn}
+                onPress={() => handleDeleteReport(report)}
+                hitSlop={8}
+                activeOpacity={0.7}
+                accessibilityLabel="Hapus laporan"
+              >
+                <Ionicons name="trash-outline" size={15} color="#B4532A" />
+              </TouchableOpacity>
+
               {report.verificationStatus === 'Menunggu Verifikasi' && (
                 <View style={styles.reportVerificationNotice}>
                   <Ionicons name="time" size={13} color="#B45309" />
@@ -289,7 +337,7 @@ export default function StudentHomeScreen() {
                   </Text>
                 </View>
               )}
-            </TouchableOpacity>
+            </View>
           ))}
         </View>
       )}
@@ -454,10 +502,10 @@ export default function StudentHomeScreen() {
           </View>
         )}
         ListEmptyComponent={
-          isLoading ? (
+          loading ? (
             <View style={styles.loadingWrap}>
-              <ActivityIndicator size="small" color="#2563EB" />
-              <Text style={styles.loadingText}>Memuat katalog barang kampus...</Text>
+              <ActivityIndicator size="large" color="#0266B3" />
+              <Text style={styles.loadingText}>Memuat data barang dari server...</Text>
             </View>
           ) : (
             <View style={styles.emptyContainer}>
@@ -804,6 +852,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     marginTop: 6,
+    position: 'relative',
+  },
+  myReportMainTap: {
+    paddingRight: 28,
+  },
+  myReportDeleteBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 8,
+    padding: 4,
   },
   myReportHeader: {
     flexDirection: 'row',

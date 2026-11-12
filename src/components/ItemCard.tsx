@@ -11,6 +11,7 @@ import {
 
 import { StatusBadge } from './StatusBadge';
 
+import { AppRadius, Colors, Typography } from '@/constants/theme';
 import { CampusItem } from '@/types';
 
 interface ItemCardProps {
@@ -21,6 +22,7 @@ interface ItemCardProps {
 
 export const ItemCard: React.FC<ItemCardProps> = ({ item, onPress, isAdmin = false }) => {
   const router = useRouter();
+  const theme = Colors.light;
 
   const handlePress = () => {
     if (onPress) {
@@ -45,10 +47,10 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onPress, isAdmin = fal
         <View
           style={[
             styles.typePill,
-            { backgroundColor: isLost ? '#DC2626' : '#16A34A' },
+            { backgroundColor: isLost ? theme.danger : theme.success },
           ]}
         >
-          <Text style={styles.typePillText}>{isLost ? 'HILANG' : 'DITEMUKAN'}</Text>
+          <Text style={styles.typePillText}>{isLost ? 'BARANG HILANG' : 'BARANG TEMUAN'}</Text>
         </View>
       </View>
 
@@ -63,14 +65,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onPress, isAdmin = fal
         </Text>
 
         <View style={styles.metaRow}>
-          <Ionicons name="business-outline" size={13} color="#2563EB" />
-          <Text style={styles.facultyText} numberOfLines={1}>
-            {item.faculty}
-          </Text>
-        </View>
-
-        <View style={styles.metaRow}>
-          <Ionicons name="location-outline" size={13} color="#64748B" />
+          <Ionicons name="location-outline" size={13} color={theme.textSecondary} />
           <Text style={styles.locationText} numberOfLines={1}>
             {item.location}
           </Text>
@@ -78,13 +73,13 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onPress, isAdmin = fal
 
         <View style={styles.footerRow}>
           <View style={styles.dateWrap}>
-            <Ionicons name="time-outline" size={12} color="#94A3B8" />
+            <Ionicons name="time-outline" size={12} color={theme.textMuted} />
             <Text style={styles.dateText}>{item.date}</Text>
           </View>
 
           <View style={styles.openDetailHint}>
             <Text style={styles.openDetailText}>{isAdmin ? 'Kelola' : 'Lihat Detail'}</Text>
-            <Ionicons name="chevron-forward" size={14} color="#2563EB" />
+            <Ionicons name="chevron-forward" size={14} color={theme.primary} />
           </View>
         </View>
       </View>
@@ -94,22 +89,17 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onPress, isAdmin = fal
 
 const styles = StyleSheet.create({
   cardContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    marginBottom: 14,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: Colors.light.surface,
+    borderRadius: AppRadius.medium,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: Colors.light.border,
     overflow: 'hidden',
   },
   imageWrapper: {
     width: '100%',
-    height: 160,
-    backgroundColor: '#F1F5F9',
+    height: 150,
+    backgroundColor: Colors.light.surfaceMuted,
     position: 'relative',
   },
   image: {
@@ -118,75 +108,65 @@ const styles = StyleSheet.create({
   },
   typePill: {
     position: 'absolute',
-    top: 12,
-    left: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+    top: 10,
+    left: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: AppRadius.small,
   },
   typePillText: {
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   content: {
-    padding: 14,
+    padding: 12,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   categoryLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#64748B',
-    backgroundColor: '#F8FAFC',
+    color: Colors.light.textSecondary,
+    backgroundColor: Colors.light.surfaceMuted,
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingVertical: 2,
+    borderRadius: AppRadius.small,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Colors.light.borderMuted,
   },
   title: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
-    lineHeight: 21,
-    marginBottom: 8,
+    fontSize: Typography.size.subtitle,
+    lineHeight: Typography.lineHeight.subtitle,
+    fontWeight: '800',
+    color: Colors.light.text,
+    letterSpacing: -0.2,
+    marginBottom: 6,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     marginBottom: 4,
   },
-  facultyText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#2563EB',
-    flex: 1,
-  },
   locationText: {
-    fontSize: 12,
-    color: '#475569',
+    fontSize: Typography.size.caption,
+    color: Colors.light.textSecondary,
     flex: 1,
   },
   footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 10,
-    paddingTop: 10,
+    marginTop: 8,
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F8FAFC',
+    borderTopColor: Colors.light.borderMuted,
   },
   dateWrap: {
     flexDirection: 'row',
@@ -195,7 +175,7 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 11,
-    color: '#94A3B8',
+    color: Colors.light.textMuted,
   },
   openDetailHint: {
     flexDirection: 'row',
@@ -205,6 +185,6 @@ const styles = StyleSheet.create({
   openDetailText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#2563EB',
+    color: Colors.light.primary,
   },
 });
