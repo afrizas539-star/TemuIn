@@ -453,10 +453,26 @@ class ApiService {
   }
 
   /**
+   * Custom Async Function dengan new Promise, resolve, dan reject:
+   * Memvalidasi format ID sebelum dieksekusi ke endpoint API.
+   */
+  validateItemIdAsync(id: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const trimmed = (id || '').trim();
+      if (!trimmed) {
+        reject(new Error('ID item tidak boleh kosong atau null.'));
+      } else {
+        resolve(trimmed);
+      }
+    });
+  }
+
+  /**
    * GET /api/items/:id (Protected Endpoint)
    */
   async fetchItemById(id: string): Promise<CampusItem> {
-    const response = await this.fetchWithTimeout(`/api/items/${encodeURIComponent(id)}`, {
+    const validId = await this.validateItemIdAsync(id);
+    const response = await this.fetchWithTimeout(`/api/items/${encodeURIComponent(validId)}`, {
       method: 'GET',
     });
     const json = await response.json();

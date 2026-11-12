@@ -41,16 +41,20 @@ export default function ExploreScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<unknown>(null);
 
-  const handleRefresh = async () => {
-    try {
-      setIsRefreshing(true);
-      setLoadError(null);
-      await refreshData();
-    } catch (err) {
-      setLoadError(err);
-    } finally {
-      setIsRefreshing(false);
-    }
+  // Rubrik: Custom Async Function dengan .then(), .catch(), .finally()
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setLoadError(null);
+    refreshData()
+      .then(() => {
+        // Data berhasil dimuat ulang
+      })
+      .catch((err) => {
+        setLoadError(err);
+      })
+      .finally(() => {
+        setIsRefreshing(false);
+      });
   };
 
   // Hanya barang temuan dan barang hilang yang sudah disetujui admin

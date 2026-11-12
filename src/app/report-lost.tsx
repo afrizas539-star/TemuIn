@@ -21,6 +21,41 @@ import { CAMPUS_CATEGORIES } from '@/constants/initialData';
 import { useAuth } from '@/context/AuthContext';
 import { useCampusData } from '@/context/CampusDataContext';
 import { apiService } from '@/services/api/apiService';
+import { CampusItem } from '@/types';
+
+/**
+ * Interface untuk input data laporan form mahasiswa (Rubrik: Object menggunakan Interface)
+ */
+export interface ReportFormData {
+  title: string;
+  category: string;
+  location: string;
+  date: string;
+  description: string;
+}
+
+/**
+ * Custom Async Function yang memvalidasi data menggunakan Promise eksplisit
+ * dengan fungsi resolve() saat input valid, dan reject() saat ada kesalahan input.
+ * (Rubrik: Custom Async Function & Menggunakan fungsi .resolve(), dan .reject())
+ */
+function validateReportAsync(data: ReportFormData): Promise<ReportFormData> {
+  return new Promise((resolve, reject) => {
+    if (!data.title.trim()) {
+      reject(new Error('Nama barang yang hilang wajib diisi.'));
+    } else if (!data.category || data.category === 'Semua') {
+      reject(new Error('Silakan pilih kategori barang.'));
+    } else if (!data.location.trim()) {
+      reject(new Error('Lokasi terakhir barang terlihat/hilang wajib diisi.'));
+    } else if (!data.date.trim()) {
+      reject(new Error('Perkiraan tanggal kehilangan wajib diisi.'));
+    } else if (!data.description.trim()) {
+      reject(new Error('Deskripsi ciri-ciri khusus barang wajib diisi secara detail.'));
+    } else {
+      resolve(data);
+    }
+  });
+}
 
 /**
  * PRIORITAS 6 — FITUR MAHASISWA: LAPOR BARANG HILANG
@@ -63,87 +98,64 @@ export default function StudentReportLostScreen() {
     }
   }, [params.photoUri]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     setApiError(null);
-    // Validasi form (Prioritas 20)
-    if (!title.trim()) {
-      Alert.alert('Form Belum Lengkap', 'Nama barang yang hilang wajib diisi.');
-      return;
-    }
-    if (!category || category === 'Semua') {
-      Alert.alert('Form Belum Lengkap', 'Silakan pilih kategori barang.');
-      return;
-    }
-    if (!location.trim()) {
-      Alert.alert(
-        'Form Belum Lengkap',
-        'Lokasi terakhir barang terlihat/hilang wajib diisi.'
-      );
-      return;
-    }
-    if (!date.trim()) {
-      Alert.alert('Form Belum Lengkap', 'Perkiraan tanggal kehilangan wajib diisi.');
-      return;
-    }
-    if (!description.trim()) {
-      Alert.alert(
-        'Form Belum Lengkap',
-        'Deskripsi ciri-ciri khusus barang wajib diisi secara detail.'
-      );
-      return;
-    }
+    setIsSubmitting(true);
 
-    try {
-      setIsSubmitting(true);
-      const studentName = user?.name || 'Mahasiswa Kampus';
-      const studentId = user?.id || `mhs-${Date.now()}`;
+    const studentName = user?.name || 'Mahasiswa Kampus';
+    const studentId = user?.id || `mhs-${Date.now()}`;
 
-      // 03. CREATE: Kirim ke REST API lewat fetch() HTTP POST
-      try {
-        await apiService.createItem({
+    // 03. CREATE & Rubrik: Menggunakan Custom Async Function dengan .then(), .catch(), .finally()
+    validateReportAsync({ title, category, location, date, description })
+      .then((validForm: ReportFormData) => {
+        // Pre-built & Custom Async: Kirim HTTP POST via fetch()
+        return apiService.createItem({
+          title: validForm.title.trim(),
+          category: validForm.category,
+          location: validForm.location.trim(),
+          faculty,
+          date: validForm.date.trim(),
+          description: validForm.description.trim(),
+          image: imageUri || undefined,
+          reporter: `${studentName} (${user?.nim || 'Mahasiswa'})`,
+          type: 'lost',
+          status: 'DALAM PENCARIAN',
+        });
+      })
+      .then(() => {
+        // Sinkronisasi data ke state/Firestore
+        return reportLostItem({
           title: title.trim(),
           category,
           location: location.trim(),
           faculty,
           date: date.trim(),
           description: description.trim(),
+          additionalInfo: additionalInfo.trim(),
           image: imageUri || undefined,
+          userId: studentId,
           reporter: `${studentName} (${user?.nim || 'Mahasiswa'})`,
-          type: 'lost',
-          status: 'DALAM PENCARIAN',
         });
-      } catch (apiErr) {
-        console.warn('[ReportLost] Catatan sinkronisasi REST API:', apiErr);
-      }
-
-      await reportLostItem({
-        title: title.trim(),
-        category,
-        location: location.trim(),
-        faculty,
-        date: date.trim(),
-        description: description.trim(),
-        additionalInfo: additionalInfo.trim(),
-        image: imageUri || undefined,
-        userId: studentId,
-        reporter: `${studentName} (${user?.nim || 'Mahasiswa'})`,
+      })
+      .then(() => {
+        Alert.alert(
+          'Laporan Berhasil Dikirim!',
+          'Laporan Anda berstatus "Menunggu Verifikasi". Petugas keamanan kampus akan memeriksa laporan sebelum diterbitkan ke katalog publik.',
+          [
+            {
+              text: 'Lihat Status di Home',
+              onPress: () => router.replace('/home'),
+            },
+          ]
+        );
+      })
+      .catch((err: Error) => {
+        setApiError(err);
+        Alert.alert('Perhatian', err.message || 'Terjadi kesalahan saat memproses laporan.');
+      })
+      .finally(() => {
+        setIsSubmitting(false);
       });
-
-      Alert.alert(
-        'Laporan Berhasil Dikirim!',
-        'Laporan Anda berstatus "Menunggu Verifikasi". Petugas keamanan kampus akan memeriksa laporan sebelum diterbitkan ke katalog publik.',
-        [
-          {
-            text: 'Lihat Status di Home',
-            onPress: () => router.replace('/home'),
-          },
-        ]
-      );
-    } catch (err) {
-      setApiError(err);
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   return (

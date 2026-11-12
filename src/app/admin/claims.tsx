@@ -23,6 +23,27 @@ import { useCampusData } from '@/context/CampusDataContext';
 import { apiService } from '@/services/api/apiService';
 import { ClaimRequest, ClaimStatus } from '@/types';
 
+export interface VerificationPayload {
+  claimId: string;
+  approved: boolean;
+  notes: string;
+}
+
+/**
+ * Custom Async Function yang memvalidasi catatan admin menggunakan Promise
+ * dengan fungsi resolve() saat valid, dan reject() saat ada alasan kosong.
+ * (Rubrik: Custom Async Function & Menggunakan fungsi .resolve(), dan .reject())
+ */
+function validateVerificationAsync(payload: VerificationPayload): Promise<VerificationPayload> {
+  return new Promise((resolve, reject) => {
+    if (!payload.approved && !payload.notes.trim()) {
+      reject(new Error('Catatan penolakan wajib diisi agar mahasiswa mengetahui alasannya.'));
+    } else {
+      resolve(payload);
+    }
+  });
+}
+
 export default function AdminClaimsScreen() {
   const router = useRouter();
   const { isAdminAuthenticated, isLoadingAuth } = useAuth();
@@ -51,40 +72,44 @@ export default function AdminClaimsScreen() {
     setAdminNotes(claim.adminNotes || '');
   };
 
-  const handleVerify = async (approved: boolean) => {
+  const handleVerify = (approved: boolean) => {
     if (!selectedClaim) return;
 
-    if (!approved && !adminNotes.trim()) {
-      Alert.alert(
-        'Catatan Penolakan Wajib Diisi',
-        'Mohon berikan alasan penolakan agar mahasiswa mengetahui ketidaksesuaian klaim.'
-      );
-      return;
-    }
+    setIsProcessing(true);
+    setVerifyError(null);
 
-    try {
-      setIsProcessing(true);
-      setVerifyError(null);
-
-      // 04. UPDATE: Kirim perubahan status ke REST API via fetch() HTTP PUT
-      try {
-        await apiService.verifyClaim(selectedClaim.id, approved, adminNotes.trim());
-      } catch (apiErr) {
-        console.warn('[AdminClaims] Catatan sinkronisasi REST API:', apiErr);
-      }
-
-      const res = await verifyClaim(selectedClaim.id, approved, adminNotes.trim());
-      if (res.success) {
-        Alert.alert('Sukses', res.message);
-        setSelectedClaim(null);
-      } else {
-        setVerifyError(res.message || 'Terjadi kesalahan saat memverifikasi klaim.');
-      }
-    } catch (e) {
-      setVerifyError(e);
-    } finally {
-      setIsProcessing(false);
-    }
+    // 04. UPDATE & Rubrik: Menggunakan Custom Async Function dengan .then(), .catch(), .finally()
+    validateVerificationAsync({
+      claimId: selectedClaim.id,
+      approved,
+      notes: adminNotes.trim(),
+    })
+      .then((validPayload: VerificationPayload) => {
+        // Pre-built & Custom Async: Kirim HTTP PUT ke endpoint REST API
+        return apiService.verifyClaim(
+          validPayload.claimId,
+          validPayload.approved,
+          validPayload.notes
+        );
+      })
+      .then(() => {
+        return verifyClaim(selectedClaim.id, approved, adminNotes.trim());
+      })
+      .then((res) => {
+        if (res.success) {
+          Alert.alert('Sukses', res.message);
+          setSelectedClaim(null);
+        } else {
+          throw new Error(res.message || 'Terjadi kesalahan saat memverifikasi klaim.');
+        }
+      })
+      .catch((err: Error) => {
+        setVerifyError(err.message);
+        Alert.alert('Perhatian', err.message);
+      })
+      .finally(() => {
+        setIsProcessing(false);
+      });
   };
 
   const getStatusBadge = (st: ClaimStatus) => {

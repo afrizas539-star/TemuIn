@@ -72,18 +72,22 @@ export default function StudentHomeScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showPoskoModal, setShowPoskoModal] = useState(false);
 
-  const handleRefresh = async () => {
-    try {
-      setIsRefreshing(true);
-      await refreshData();
-    } catch (err) {
-      console.warn('[Home] Refresh error:', err);
-    } finally {
-      setIsRefreshing(false);
-    }
+  // 06. RE-FETCH & Rubrik: Custom Async Function dengan .then(), .catch(), .finally()
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    refreshData()
+      .then(() => {
+        // Data berhasil diperbarui dari API server
+      })
+      .catch((err: Error) => {
+        console.warn('[Home] Refresh error:', err.message);
+      })
+      .finally(() => {
+        setIsRefreshing(false);
+      });
   };
 
-  // 05. DELETE & Error Handling: Batalkan/Hapus Laporan Milik Mahasiswa
+  // 05. DELETE & Error Handling: Batalkan/Hapus Laporan Milik Mahasiswa dengan .then() dan .catch()
   const handleDeleteReport = (report: (typeof myReports)[0]) => {
     Alert.alert(
       'Hapus Laporan',
@@ -93,13 +97,14 @@ export default function StudentHomeScreen() {
         {
           text: 'Hapus',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteItem(report.id);
-              Alert.alert('Berhasil', 'Laporan telah dihapus.');
-            } catch (err: any) {
-              Alert.alert('Gagal Menghapus', err.message || 'Terjadi kesalahan pada server.');
-            }
+          onPress: () => {
+            deleteItem(report.id)
+              .then(() => {
+                Alert.alert('Berhasil', 'Laporan telah dihapus.');
+              })
+              .catch((err: Error) => {
+                Alert.alert('Gagal Menghapus', err.message || 'Terjadi kesalahan pada server.');
+              });
           },
         },
       ]
