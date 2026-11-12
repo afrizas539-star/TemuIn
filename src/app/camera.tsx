@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { CameraType, CameraView, FlashMode, useCameraPermissions } from 'expo-camera';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -28,6 +28,17 @@ export default function CameraScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
+  const params = useLocalSearchParams<{
+    returnTo?: string;
+    photoUri?: string;
+    title?: string;
+    category?: string;
+    location?: string;
+    faculty?: string;
+    date?: string;
+    description?: string;
+    additionalInfo?: string;
+  }>();
 
   // --------------------------------------------------------------------------
   // STATE KAMERA & SENSOR
@@ -127,14 +138,18 @@ export default function CameraScreen() {
   // --------------------------------------------------------------------------
   // BAGIAN 5: KIRIM HASIL FOTO KE HALAMAN LAIN (report-lost)
   // Memakai router.navigate agar tidak membuat duplikasi layar di stack dan
-  // input form yang sudah diisi mahasiswa tidak ter-reset.
+  // input form yang sudah diisi mahasiswa diteruskan kembali secara utuh.
   // --------------------------------------------------------------------------
   const handleUsePhoto = () => {
     if (!photoUri) return;
 
+    const targetRoute = (params.returnTo as any) || '/report-lost';
     router.navigate({
-      pathname: '/report-lost',
-      params: { photoUri },
+      pathname: targetRoute,
+      params: {
+        ...params,
+        photoUri,
+      },
     } as any);
   };
 

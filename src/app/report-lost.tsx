@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
@@ -18,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiErrorMessage } from '@/components/ApiErrorMessage';
 import { ImagePickerButton } from '@/components/ImagePickerButton';
 import { CAMPUS_CATEGORIES } from '@/constants/initialData';
+import { AppRadius, Colors } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useCampusData } from '@/context/CampusDataContext';
 import { apiService } from '@/services/api/apiService';
@@ -32,6 +34,45 @@ export interface ReportFormData {
   location: string;
   date: string;
   description: string;
+}
+
+/**
+ * Interface draft in-memory untuk mencegah data input hilang saat membuka layar kamera
+ */
+interface ReportDraft {
+  title: string;
+  category: string;
+  location: string;
+  faculty: string;
+  date: string;
+  description: string;
+  additionalInfo: string;
+  imageUri: string;
+}
+
+// Module-level memory draft agar nilai form tidak hilang saat berpindah ke layar sensor kamera
+let reportFormDraft: ReportDraft = {
+  title: '',
+  category: CAMPUS_CATEGORIES[1],
+  location: '',
+  faculty: '',
+  date: '',
+  description: '',
+  additionalInfo: '',
+  imageUri: '',
+};
+
+function clearReportDraft() {
+  reportFormDraft = {
+    title: '',
+    category: CAMPUS_CATEGORIES[1],
+    location: '',
+    faculty: '',
+    date: '',
+    description: '',
+    additionalInfo: '',
+    imageUri: '',
+  };
 }
 
 /**
@@ -71,32 +112,147 @@ export default function StudentReportLostScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { reportLostItem } = useCampusData();
-  // Parameter dari layar kamera (Task 03 - Integrasi antar layar)
-  const params = useLocalSearchParams<{ photoUri?: string }>();
 
-  // Form states
-  const [title, setTitle] = useState('');
-  const [category, setCategory] = useState(CAMPUS_CATEGORIES[1]); // default 'KTM & Kartu'
-  const [location, setLocation] = useState('');
-  const [faculty, setFaculty] = useState('');
-  const [date, setDate] = useState(
-    'Hari ini • ' +
-      new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) +
-      ' WIB'
+  // Parameter dari layar kamera (Task 03 - Integrasi antar layar)
+  const params = useLocalSearchParams<{
+    photoUri?: string;
+    title?: string;
+    category?: string;
+    location?: string;
+    faculty?: string;
+    date?: string;
+    description?: string;
+    additionalInfo?: string;
+  }>();
+
+  // Form states diinisialisasi dari draft memory agar tidak ter-reset saat pengguna memotret dengan kamera
+  const [title, setTitle] = useState(
+    () => reportFormDraft.title || (params.title ? String(params.title) : '')
   );
-  const [description, setDescription] = useState('');
-  const [additionalInfo, setAdditionalInfo] = useState('');
-  const [imageUri, setImageUri] = useState('');
+  const [category, setCategory] = useState(
+    () =>
+      reportFormDraft.category ||
+      (params.category ? String(params.category) : CAMPUS_CATEGORIES[1])
+  );
+  const [location, setLocation] = useState(
+    () => reportFormDraft.location || (params.location ? String(params.location) : '')
+  );
+  const [faculty, setFaculty] = useState(
+    () => reportFormDraft.faculty || (params.faculty ? String(params.faculty) : '')
+  );
+  const [date, setDate] = useState(
+    () =>
+      reportFormDraft.date ||
+      (params.date
+        ? String(params.date)
+        : 'Hari ini • ' +
+          new Date().toLocaleTimeString('id-ID', {
+            hour: '2-digit',
+            minute: '2-digit',
+          }) +
+          ' WIB')
+  );
+  const [description, setDescription] = useState(
+    () =>
+      reportFormDraft.description ||
+      (params.description ? String(params.description) : '')
+  );
+  const [additionalInfo, setAdditionalInfo] = useState(
+    () =>
+      reportFormDraft.additionalInfo ||
+      (params.additionalInfo ? String(params.additionalInfo) : '')
+  );
+  const [imageUri, setImageUri] = useState(
+    () =>
+      reportFormDraft.imageUri || (params.photoUri ? String(params.photoUri) : '')
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState<unknown>(null);
 
-  // Menerima hasil foto dari layar kamera (Task 03)
+  // Sinkronisasi nilai input dengan draft in-memory
+  const updateTitle = (val: string) => {
+    setTitle(val);
+    reportFormDraft.title = val;
+  };
+  const updateCategory = (val: string) => {
+    setCategory(val);
+    reportFormDraft.category = val;
+  };
+  const updateLocation = (val: string) => {
+    setLocation(val);
+    reportFormDraft.location = val;
+  };
+  const updateFaculty = (val: string) => {
+    setFaculty(val);
+    reportFormDraft.faculty = val;
+  };
+  const updateDate = (val: string) => {
+    setDate(val);
+    reportFormDraft.date = val;
+  };
+  const updateDescription = (val: string) => {
+    setDescription(val);
+    reportFormDraft.description = val;
+  };
+  const updateAdditionalInfo = (val: string) => {
+    setAdditionalInfo(val);
+    reportFormDraft.additionalInfo = val;
+  };
+  const updateImageUri = (val: string) => {
+    setImageUri(val);
+    reportFormDraft.imageUri = val;
+  };
+
+  // Menerima hasil foto dari layar kamera sensor (Task 03)
   useEffect(() => {
     if (params.photoUri) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setImageUri(params.photoUri);
+      updateImageUri(params.photoUri);
     }
-  }, [params.photoUri]);
+    if (params.title && !title) {
+      updateTitle(params.title);
+    }
+    if (params.category && category !== params.category) {
+      updateCategory(params.category);
+    }
+    if (params.location && !location) {
+      updateLocation(params.location);
+    }
+    if (params.faculty && !faculty) {
+      updateFaculty(params.faculty);
+    }
+    if (params.date && !date) {
+      updateDate(params.date);
+    }
+    if (params.description && !description) {
+      updateDescription(params.description);
+    }
+    if (params.additionalInfo && !additionalInfo) {
+      updateAdditionalInfo(params.additionalInfo);
+    }
+  }, [params]);
+
+  // Memotret langsung menggunakan kamera perangkat dengan fitur crop foto
+  const handleDirectCamera = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Izin Kamera Dibutuhkan',
+          'Aplikasi membutuhkan akses ke kamera untuk memotret barang yang hilang.'
+        );
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets[0]?.uri) {
+        updateImageUri(result.assets[0].uri);
+      }
+    } catch (e) {
+      console.warn('Gagal memotret langsung:', e);
+    }
+  };
 
   const handleSubmit = () => {
     setApiError(null);
@@ -108,46 +264,72 @@ export default function StudentReportLostScreen() {
     // 03. CREATE & Rubrik: Menggunakan Custom Async Function dengan .then(), .catch(), .finally()
     validateReportAsync({ title, category, location, date, description })
       .then((validForm: ReportFormData) => {
-        // Pre-built & Custom Async: Kirim HTTP POST via fetch()
-        return apiService.createItem({
-          title: validForm.title.trim(),
-          category: validForm.category,
-          location: validForm.location.trim(),
-          faculty,
-          date: validForm.date.trim(),
-          description: validForm.description.trim(),
-          image: imageUri || undefined,
-          reporter: `${studentName} (${user?.nim || 'Mahasiswa'})`,
-          type: 'lost',
-          status: 'DALAM PENCARIAN',
-        });
+        // Pre-built & Custom Async: Kirim HTTP POST via fetch() ke REST API Server
+        return apiService
+          .createItem({
+            title: validForm.title.trim(),
+            category: validForm.category,
+            location: validForm.location.trim(),
+            faculty: faculty.trim() || undefined,
+            date: validForm.date.trim(),
+            description: validForm.description.trim(),
+            image: imageUri || undefined,
+            reporter: `${studentName} (${user?.nim || 'Mahasiswa'})`,
+            type: 'lost',
+            status: 'DALAM PENCARIAN',
+          })
+          .then((serverItem) => ({ serverSuccess: true, item: serverItem }))
+          .catch((apiErr) => {
+            // Graceful handling jika server REST API backend belum dinyalakan/terjangkau
+            console.warn(
+              '[ReportLost] Server REST API backend belum terjangkau, menyimpan laporan secara lokal:',
+              apiErr.message
+            );
+            return { serverSuccess: false, item: null, error: apiErr };
+          });
       })
-      .then(() => {
-        // Sinkronisasi data ke state/Firestore
+      .then((apiResult) => {
+        // Simpan ke state & repository lokal kampus agar data tersimpan dan langsung terlihat di Home
         return reportLostItem({
           title: title.trim(),
           category,
           location: location.trim(),
-          faculty,
+          faculty: faculty.trim() || undefined,
           date: date.trim(),
           description: description.trim(),
-          additionalInfo: additionalInfo.trim(),
+          additionalInfo: additionalInfo.trim() || undefined,
           image: imageUri || undefined,
           userId: studentId,
           reporter: `${studentName} (${user?.nim || 'Mahasiswa'})`,
-        });
+        }).then(() => apiResult);
       })
-      .then(() => {
-        Alert.alert(
-          'Laporan Berhasil Dikirim!',
-          'Laporan Anda berstatus "Menunggu Verifikasi". Petugas keamanan kampus akan memeriksa laporan sebelum diterbitkan ke katalog publik.',
-          [
-            {
-              text: 'Lihat Status di Home',
-              onPress: () => router.replace('/home'),
-            },
-          ]
-        );
+      .then((apiResult) => {
+        // Hapus draft form setelah laporan berhasil disimpan
+        clearReportDraft();
+
+        if (apiResult.serverSuccess) {
+          Alert.alert(
+            'Laporan Berhasil Terkirim!',
+            'Laporan kehilangan Anda telah berhasil disimpan ke REST API server dan berstatus "Menunggu Verifikasi" oleh petugas keamanan kampus.',
+            [
+              {
+                text: 'Lihat Status di Beranda',
+                onPress: () => router.replace('/home'),
+              },
+            ]
+          );
+        } else {
+          Alert.alert(
+            'Laporan Berhasil Disimpan!',
+            'Laporan Anda berhasil disimpan di perangkat.\n\nCatatan: Server REST API backend belum terhubung/aktif (jalankan "npm run backend" di terminal jika ingin menyinkronkan ke server). Data laporan tetap aman dan langsung dapat Anda pantau di Beranda.',
+            [
+              {
+                text: 'Buka Beranda',
+                onPress: () => router.replace('/home'),
+              },
+            ]
+          );
+        }
       })
       .catch((err: Error) => {
         setApiError(err);
@@ -226,7 +408,7 @@ export default function StudentReportLostScreen() {
               placeholder="Contoh: Dompet Hitam Eiger, KTM Fisip, Botol Minum"
               placeholderTextColor="#94A3B8"
               value={title}
-              onChangeText={setTitle}
+              onChangeText={updateTitle}
             />
           </View>
 
@@ -242,7 +424,7 @@ export default function StudentReportLostScreen() {
                   <TouchableOpacity
                     key={cat}
                     style={[styles.categoryChip, isSelected && styles.categoryChipSelected]}
-                    onPress={() => setCategory(cat)}
+                    onPress={() => updateCategory(cat)}
                     activeOpacity={0.7}
                   >
                     <Text
@@ -269,7 +451,7 @@ export default function StudentReportLostScreen() {
               placeholder="Contoh: GKB 3 Ruang 201, Kantin FEB, Parkir Motor"
               placeholderTextColor="#94A3B8"
               value={location}
-              onChangeText={setLocation}
+              onChangeText={updateLocation}
             />
           </View>
 
@@ -284,7 +466,7 @@ export default function StudentReportLostScreen() {
               placeholder="Contoh: Fakultas Teknik, Kantin Pusat"
               placeholderTextColor="#94A3B8"
               value={faculty}
-              onChangeText={setFaculty}
+              onChangeText={updateFaculty}
             />
           </View>
 
@@ -298,7 +480,7 @@ export default function StudentReportLostScreen() {
               placeholder="Contoh: Hari ini • 14:00 WIB"
               placeholderTextColor="#94A3B8"
               value={date}
-              onChangeText={setDate}
+              onChangeText={updateDate}
             />
           </View>
 
@@ -312,7 +494,7 @@ export default function StudentReportLostScreen() {
               placeholder="Sebutkan warna, merk, stiker, isi di dalam barang, atau tanda unik lainnya..."
               placeholderTextColor="#94A3B8"
               value={description}
-              onChangeText={setDescription}
+              onChangeText={updateDescription}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
@@ -327,7 +509,7 @@ export default function StudentReportLostScreen() {
               placeholder="Nomor WA alternatif atau pesan untuk penemu..."
               placeholderTextColor="#94A3B8"
               value={additionalInfo}
-              onChangeText={setAdditionalInfo}
+              onChangeText={updateAdditionalInfo}
             />
           </View>
 
@@ -335,28 +517,20 @@ export default function StudentReportLostScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Foto Barang (Jika Tersedia)</Text>
 
-            {/* Tombol Ambil Foto Langsung dari Sensor Kamera (Task 01 - 03) */}
+            {/* Tombol Ambil Foto Kamera */}
             <TouchableOpacity
-              style={styles.cameraPickerBtn}
-              onPress={() => router.push('/camera' as any)}
+              style={styles.takePhotoBtn}
+              onPress={handleDirectCamera}
               activeOpacity={0.8}
             >
-              <View style={styles.cameraIconBox}>
-                <Ionicons name="camera" size={20} color="#2563EB" />
-              </View>
-              <View style={styles.cameraBtnTextWrap}>
-                <Text style={styles.cameraBtnTitle}>Ambil Foto dengan Kamera</Text>
-                <Text style={styles.cameraBtnSubtitle}>
-                  Potret barang langsung menggunakan sensor kamera
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+              <Ionicons name="camera" size={18} color="#0266B3" />
+              <Text style={styles.takePhotoBtnText}>Ambil Foto</Text>
             </TouchableOpacity>
 
             <ImagePickerButton
               imageUri={imageUri}
-              onImageSelected={setImageUri}
-              onImageRemoved={() => setImageUri('')}
+              onImageSelected={updateImageUri}
+              onImageRemoved={() => updateImageUri('')}
               title="Unggah Foto dari Galeri"
               subtitle="Pilih foto barang jika Anda pernah memfotonya"
             />
@@ -533,36 +707,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
   },
-  cameraPickerBtn: {
+  takePhotoBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    backgroundColor: '#E8F2FA',
     borderWidth: 1,
     borderColor: '#BFDBFE',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 10,
-    gap: 12,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    gap: 8,
   },
-  cameraIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#DBEAFE',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cameraBtnTextWrap: {
-    flex: 1,
-  },
-  cameraBtnTitle: {
+  takePhotoBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1D4ED8',
-    marginBottom: 2,
-  },
-  cameraBtnSubtitle: {
-    fontSize: 11,
-    color: '#64748B',
+    color: '#0266B3',
   },
 });

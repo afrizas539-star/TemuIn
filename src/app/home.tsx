@@ -247,40 +247,7 @@ export default function StudentHomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 5. Akses Cepat (Shortcut Grid) */}
-      <View style={styles.shortcutGrid}>
-        <TouchableOpacity
-          style={[styles.shortcutCard, styles.shortcutCardRed]}
-          onPress={() => router.push('/report-lost')}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.shortcutIconCircle, { backgroundColor: '#FBEEEA' }]}>
-            <Ionicons name="alert-circle" size={20} color="#B4532A" />
-          </View>
-          <View style={styles.shortcutTextWrap}>
-            <Text style={styles.shortcutTitle}>Lapor Kehilangan</Text>
-            <Text style={styles.shortcutSubtitle}>Buat laporan barang tertinggal</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={16} color="#B4532A" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.shortcutCard, styles.shortcutCardGreen]}
-          onPress={() => router.push('/explore')}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.shortcutIconCircle, { backgroundColor: '#EBF4EF' }]}>
-            <Ionicons name="search" size={20} color="#2F6B4F" />
-          </View>
-          <View style={styles.shortcutTextWrap}>
-            <Text style={styles.shortcutTitle}>Explore Barang</Text>
-            <Text style={styles.shortcutSubtitle}>Katalog barang posko kampus</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={16} color="#2F6B4F" />
-        </TouchableOpacity>
-      </View>
-
-      {/* 6. Status Laporan Milik Mahasiswa */}
+      {/* Status Laporan Milik Mahasiswa */}
       {myReports.length > 0 && (
         <View style={styles.myReportsSection}>
           <View style={styles.sectionHeaderRow}>
@@ -772,51 +739,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#64748B',
     fontWeight: '600',
-    marginTop: 1,
-  },
-
-  // Shortcuts
-  shortcutGrid: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 14,
-  },
-  shortcutCard: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-    minWidth: 0,
-    overflow: 'hidden',
-  },
-  shortcutCardRed: {
-    borderColor: '#FECDD3',
-  },
-  shortcutCardGreen: {
-    borderColor: '#BBF7D0',
-  },
-  shortcutIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  shortcutTextWrap: {
-    flex: 1,
-  },
-  shortcutTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  shortcutSubtitle: {
-    fontSize: 9,
-    color: '#64748B',
     marginTop: 1,
   },
 

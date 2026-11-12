@@ -86,11 +86,16 @@ export default function AdminClaimsScreen() {
     })
       .then((validPayload: VerificationPayload) => {
         // Pre-built & Custom Async: Kirim HTTP PUT ke endpoint REST API
-        return apiService.verifyClaim(
-          validPayload.claimId,
-          validPayload.approved,
-          validPayload.notes
-        );
+        return apiService
+          .verifyClaim(
+            validPayload.claimId,
+            validPayload.approved,
+            validPayload.notes
+          )
+          .catch((apiErr) => {
+            console.warn('[AdminClaims] REST API server tidak terjangkau, status diperbarui secara lokal:', apiErr.message);
+            return null;
+          });
       })
       .then(() => {
         return verifyClaim(selectedClaim.id, approved, adminNotes.trim());
