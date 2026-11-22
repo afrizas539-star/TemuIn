@@ -16,8 +16,10 @@ import {
 } from 'react-native';
 
 import { AdminBottomNav } from '@/components/AdminBottomNav';
+import { AdminCameraPicker } from '@/components/AdminCameraPicker';
 import { AdminHeader } from '@/components/AdminHeader';
 import { ApiErrorMessage } from '@/components/ApiErrorMessage';
+import { SafeImage } from '@/components/SafeImage';
 import { useAuth } from '@/context/AuthContext';
 import { useCampusData } from '@/context/CampusDataContext';
 import { apiService } from '@/services/api/apiService';
@@ -46,18 +48,26 @@ function validateVerificationAsync(payload: VerificationPayload): Promise<Verifi
 
 export default function AdminClaimsScreen() {
   const router = useRouter();
-  const { isAdminAuthenticated, isLoadingAuth } = useAuth();
+  const { isAdminAuthenticated, role, isLoadingAuth } = useAuth();
   const { claims, verifyClaim } = useCampusData();
 
   useEffect(() => {
-    if (!isLoadingAuth && !isAdminAuthenticated) {
-      router.replace('/admin/login');
+    if (!isLoadingAuth) {
+      if (!isAdminAuthenticated) {
+        if (role === 'student') {
+          Alert.alert('Akses Ditolak', 'Mahasiswa tidak memiliki izin mengakses panel verifikasi klaim.');
+          router.replace('/home');
+        } else {
+          router.replace('/login');
+        }
+      }
     }
-  }, [isAdminAuthenticated, isLoadingAuth]);
+  }, [isAdminAuthenticated, role, isLoadingAuth]);
 
   const [filterStatus, setFilterStatus] = useState<string>('Semua');
   const [selectedClaim, setSelectedClaim] = useState<ClaimRequest | null>(null);
   const [adminNotes, setAdminNotes] = useState('');
+  const [handoverPhoto, setHandoverPhoto] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showFullIdCard, setShowFullIdCard] = useState(false);
   const [verifyError, setVerifyError] = useState<unknown>(null);
@@ -78,11 +88,15 @@ export default function AdminClaimsScreen() {
     setIsProcessing(true);
     setVerifyError(null);
 
+    const fullNotes = handoverPhoto
+      ? `${adminNotes.trim()} [Foto Dokumentasi Penyerahan: ${handoverPhoto}]`.trim()
+      : adminNotes.trim();
+
     // 04. UPDATE & Rubrik: Menggunakan Custom Async Function dengan .then(), .catch(), .finally()
     validateVerificationAsync({
       claimId: selectedClaim.id,
       approved,
-      notes: adminNotes.trim(),
+      notes: fullNotes,
     })
       .then((validPayload: VerificationPayload) => {
         // Pre-built & Custom Async: Kirim HTTP PUT ke endpoint REST API
@@ -98,7 +112,7 @@ export default function AdminClaimsScreen() {
           });
       })
       .then(() => {
-        return verifyClaim(selectedClaim.id, approved, adminNotes.trim());
+        return verifyClaim(selectedClaim.id, approved, fullNotes);
       })
       .then((res) => {
         if (res.success) {
@@ -322,8 +336,8 @@ export default function AdminClaimsScreen() {
                         onPress={() => setShowFullIdCard(true)}
                         style={styles.ktmImageWrapper}
                       >
-                        <Image
-                          source={{ uri: selectedClaim.idCardImage }}
+                        <SafeImage
+                          uri={selectedClaim.idCardImage}
                           style={styles.ktmImage}
                           resizeMode="cover"
                         />
@@ -344,6 +358,22 @@ export default function AdminClaimsScreen() {
                     error={verifyError}
                     onDismiss={() => setVerifyError(null)}
                   />
+
+                  {/* Dokumentasi Penyerahan Barang (Kamera Petugas) */}
+                  <View style={styles.sectionBox}>
+                    <Text style={styles.boxTitle}>Dokumentasi Penyerahan Barang Fisik</Text>
+                    <Text style={{ fontSize: 11, color: '#64748B', marginBottom: 6 }}>
+                      Ambil foto dokumentasi saat barang temuan diserahkan kepada mahasiswa pemohon klaim.
+                    </Text>
+                    <AdminCameraPicker
+                      imageUri={handoverPhoto}
+                      onImageUploaded={(url) => setHandoverPhoto(url)}
+                      onImageRemoved={() => setHandoverPhoto('')}
+                      title="Foto Serah Terima Barang"
+                      subtitle="Dokumentasikan bukti penyerahan barang secara visual"
+                      storageFolder="handover"
+                    />
+                  </View>
 
                   {/* Admin Notes Input */}
                   <View style={styles.sectionBox}>

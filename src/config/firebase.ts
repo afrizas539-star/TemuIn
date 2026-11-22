@@ -3,6 +3,7 @@ import { getApp, getApps, initializeApp } from 'firebase/app';
 // @ts-ignore
 import { getAuth, getReactNativePersistence, initializeAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import { Platform } from 'react-native';
 
 const firebaseConfig = {
@@ -43,4 +44,7 @@ export const auth = authInstance;
 // Inisialisasi Firestore
 export const db = getFirestore(app);
 
-console.log('[Startup] Firebase (App, Auth, Firestore) berhasil diinisialisasi.');
+// Inisialisasi Firebase Storage
+export const storage = getStorage(app);
+
+console.log('[Startup] Firebase (App, Auth, Firestore, Storage) berhasil diinisialisasi.');

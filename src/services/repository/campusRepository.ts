@@ -10,13 +10,16 @@ import {
   updateClaimInFirestore,
   updateItemInFirestore,
 } from '@/services/firebase/firestoreService';
+import { secureStorage } from '@/services/storage/secureStorage';
 import {
   CampusItem,
+  CampusLocation,
   ClaimRequest,
   ClaimStatus,
   FoundItemStatus,
   ItemStatus,
   LostItemStatus,
+  User,
   VerificationStatus,
 } from '@/types';
 
@@ -112,6 +115,7 @@ class CampusRepository {
     category: string;
     description: string;
     location: string;
+    locationDetail?: CampusLocation;
     date: string;
     image?: string;
     additionalInfo?: string;
@@ -119,6 +123,12 @@ class CampusRepository {
     reporter: string;
     faculty?: string;
   }): Promise<CampusItem> {
+    // Validasi gambar: jangan pernah menyimpan URI lokal file:// ke Firestore
+    let finalImage = data.image?.trim();
+    if (!finalImage || finalImage.startsWith('file://') || finalImage.startsWith('content://')) {
+      finalImage = 'https://images.unsplash.com/photo-1594980596870-8aa52a78d8cd?q=80&w=600&auto=format&fit=crop';
+    }
+
     const itemData: Omit<CampusItem, 'id'> = {
       title: data.title.trim(),
       category: data.category,
@@ -129,14 +139,13 @@ class CampusRepository {
       statusColor: STATUS_COLORS['DALAM PENCARIAN']?.text || '#B91C1C',
       date: data.date.trim() || 'Hari ini',
       location: data.location.trim(),
+      locationDetail: data.locationDetail,
       faculty: data.faculty || 'Semua Fakultas',
       description: data.description.trim(),
       additionalInfo: data.additionalInfo?.trim() || '',
       reporter: data.reporter.trim(),
       userId: data.userId,
-      image:
-        data.image ||
-        'https://images.unsplash.com/photo-1594980596870-8aa52a78d8cd?q=80&w=600&auto=format&fit=crop',
+      image: finalImage,
       reward: null,
       createdAt: new Date().toISOString(),
     };
@@ -199,11 +208,23 @@ class CampusRepository {
     category: string;
     description: string;
     location: string;
+    locationDetail?: CampusLocation;
     date: string;
     image: string;
     reporter: string;
     faculty?: string;
   }): Promise<CampusItem> {
+    // Validasi wewenang: Mahasiswa dilarang menambahkan barang temuan
+    const activeRole = await secureStorage.getItem('auth_active_role');
+    if (activeRole !== 'admin' && activeRole !== 'super_admin') {
+      throw new Error('Akses ditolak: Hanya Petugas/Admin resmi yang berwenang menambahkan data barang temuan.');
+    }
+
+    let finalImage = data.image?.trim();
+    if (!finalImage || finalImage.startsWith('file://') || finalImage.startsWith('content://')) {
+      finalImage = 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?q=80&w=600&auto=format&fit=crop';
+    }
+
     const itemData: Omit<CampusItem, 'id'> = {
       title: data.title.trim(),
       category: data.category,
@@ -213,12 +234,11 @@ class CampusRepository {
       statusColor: STATUS_COLORS['TERSEDIA']?.text || '#15803D',
       date: data.date.trim() || 'Hari ini',
       location: data.location.trim(),
+      locationDetail: data.locationDetail,
       faculty: data.faculty || 'Semua Fakultas',
       description: data.description.trim(),
       reporter: data.reporter.trim(),
-      image:
-        data.image ||
-        'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?q=80&w=600&auto=format&fit=crop',
+      image: finalImage,
       reward: null,
       createdAt: new Date().toISOString(),
     };
@@ -265,6 +285,14 @@ class CampusRepository {
 
   async updateItemStatus(itemId: string, newStatus: ItemStatus): Promise<void> {
     const item = _items.find((i) => i.id === itemId);
+    const activeRole = await secureStorage.getItem('auth_active_role');
+    const isAdmin = activeRole === 'admin' || activeRole === 'super_admin';
+
+    // Mahasiswa TIDAK BOLEH mengubah status barang temuan
+    if (item?.type === 'found' && !isAdmin) {
+      throw new Error('Akses ditolak: Mahasiswa tidak memiliki wewenang mengubah status barang temuan.');
+    }
+
     const updatedFields: Partial<CampusItem> = {
       status: newStatus,
       statusColor: STATUS_COLORS[newStatus]?.text || '#334155',
@@ -296,6 +324,20 @@ class CampusRepository {
   }
 
   async updateItem(itemId: string, updatedFields: Partial<CampusItem>): Promise<void> {
+    const item = _items.find((i) => i.id === itemId);
+    const activeRole = await secureStorage.getItem('auth_active_role');
+    const isAdmin = activeRole === 'admin' || activeRole === 'super_admin';
+
+    // Mahasiswa TIDAK BOLEH mengedit data barang temuan
+    if (item?.type === 'found' && !isAdmin) {
+      throw new Error('Akses ditolak: Mahasiswa tidak diizinkan mengubah informasi barang temuan.');
+    }
+
+    // Pastikan jika ada gambar baru, bukan merupakan file://
+    if (updatedFields.image && (updatedFields.image.startsWith('file://') || updatedFields.image.startsWith('content://'))) {
+      throw new Error('Format gambar tidak valid. Gambar harus diunggah ke Firebase Storage terlebih dahulu.');
+    }
+
     const extra: Partial<CampusItem> = {};
     if (updatedFields.status) {
       extra.statusColor = STATUS_COLORS[updatedFields.status]?.text || '#334155';
@@ -304,6 +346,21 @@ class CampusRepository {
   }
 
   async deleteItem(itemId: string): Promise<void> {
+    const item = _items.find((i) => i.id === itemId);
+    const activeRole = await secureStorage.getItem('auth_active_role');
+    const activeUser = await secureStorage.getObject<User>('auth_active_user');
+    const isAdmin = activeRole === 'admin' || activeRole === 'super_admin';
+
+    // Mahasiswa TIDAK BOLEH menghapus barang temuan
+    if (item?.type === 'found' && !isAdmin) {
+      throw new Error('Akses ditolak: Mahasiswa tidak diizinkan menghapus data barang temuan.');
+    }
+
+    // Jika barang hilang, hanya admin atau pemilik laporan yang boleh menghapus
+    if (item?.type === 'lost' && !isAdmin && item.userId !== activeUser?.id) {
+      throw new Error('Akses ditolak: Anda hanya dapat menghapus laporan kehilangan milik Anda sendiri.');
+    }
+
     await deleteItemFromFirestore(itemId);
   }
 

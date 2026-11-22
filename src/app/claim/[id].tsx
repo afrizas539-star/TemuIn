@@ -3,8 +3,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -18,9 +18,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiErrorMessage } from '@/components/ApiErrorMessage';
 import { ImagePickerButton } from '@/components/ImagePickerButton';
+import { SafeImage } from '@/components/SafeImage';
 import { useAuth } from '@/context/AuthContext';
 import { useCampusData } from '@/context/CampusDataContext';
 import { AppApiError } from '@/services/api/httpErrors';
+import { deletePhotoFromStorage, uploadItemPhotoToStorage } from '@/services/firebase/storageService';
 
 export default function ClaimItemScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -39,6 +41,7 @@ export default function ClaimItemScreen() {
   const [proofDetails, setProofDetails] = useState('');
   const [idCardImage, setIdCardImage] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingKtm, setIsUploadingKtm] = useState(false);
   const [apiError, setApiError] = useState<unknown>(null);
 
   // Guard: redirect jika belum login
@@ -48,37 +51,27 @@ export default function ClaimItemScreen() {
     }
   }, [isAuthenticated, isLoadingAuth]);
 
-  // Guard: Mahasiswa tidak boleh mengakses formulir klaim langsung
-  if (!isLoadingAuth && !isAdmin) {
-    return (
-      <View style={[styles.container, styles.center]}>
-        <View style={styles.noticeIconWrap}>
-          <Ionicons name="shield-checkmark" size={48} color="#2563EB" />
-        </View>
-        <Text style={styles.noticeTitle}>Prosedur Pengambilan Barang</Text>
-        <Text style={styles.noticeText}>
-          Pengambilan barang temuan tidak dilakukan secara mandiri melalui aplikasi, melainkan harus diverifikasi dan ditangani langsung oleh Petugas Keamanan Kampus.
-        </Text>
-        <Text style={styles.noticeSubText}>
-          Silakan kunjungi Posko Keamanan Kampus dengan membawa Kartu Tanda Mahasiswa (KTM) aktif dan menyebutkan ciri khusus barang yang cocok.
-        </Text>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => {
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace(item ? (`/item/${item.id}` as any) : '/home');
-            }
-          }}
-        >
-          <Ionicons name="arrow-back" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-          <Text style={styles.backBtnText}>Kembali ke Detail Barang</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
+  // Upload KTM/KTP langsung ke Firebase Storage (folder id_cards)
+  const processAndUploadKtm = async (localUri: string) => {
+    const oldUri = idCardImage;
+    try {
+      setIsUploadingKtm(true);
+      const downloadUrl = await uploadItemPhotoToStorage(localUri, 'id_cards');
+      setIdCardImage(downloadUrl);
+      if (
+        oldUri &&
+        oldUri !== downloadUrl &&
+        (oldUri.includes('firebasestorage.googleapis.com') || oldUri.includes('firebasestorage.app'))
+      ) {
+        deletePhotoFromStorage(oldUri).catch(() => {});
+      }
+      Alert.alert('Sukses', 'Foto KTM/KTP berhasil diunggah.');
+    } catch (err: any) {
+      Alert.alert('Upload KTM Gagal', err?.message || 'Gagal mengunggah foto kartu identitas.');
+    } finally {
+      setIsUploadingKtm(false);
+    }
+  };
 
   // Guard: barang tidak ditemukan
   if (!item) {
@@ -103,11 +96,10 @@ export default function ClaimItemScreen() {
   }
 
   const handleSubmit = async () => {
-    // Role check: hanya admin/petugas yang berhak memproses formulir klaim
-    if (!isAdmin) {
+    if (isUploadingKtm) {
       Alert.alert(
-        'Akses Dibatasi',
-        'Pengambilan barang temuan harus ditangani langsung oleh Petugas Keamanan di Posko Kampus.'
+        'Upload KTM Sedang Berjalan',
+        'Mohon tunggu hingga proses unggah foto KTM ke Firebase Storage selesai.'
       );
       return;
     }
@@ -224,7 +216,12 @@ export default function ClaimItemScreen() {
 
         {/* Item Summary Card */}
         <View style={styles.itemSummaryCard}>
-          <Image source={{ uri: item.image }} style={styles.itemThumb} resizeMode="cover" />
+          <SafeImage
+            uri={item.image}
+            fallbackType="found"
+            style={styles.itemThumb}
+            resizeMode="cover"
+          />
           <View style={styles.itemSummaryText}>
             <Text style={styles.itemSummaryCat}>{item.category}</Text>
             <Text style={styles.itemSummaryTitle} numberOfLines={2}>
@@ -336,20 +333,42 @@ export default function ClaimItemScreen() {
 
             <ImagePickerButton
               imageUri={idCardImage}
-              onImageSelected={(uri) => setIdCardImage(uri)}
-              onImageRemoved={() => setIdCardImage('')}
+              onImageSelected={processAndUploadKtm}
+              onImageRemoved={() => {
+                if (
+                  idCardImage &&
+                  (idCardImage.includes('firebasestorage.googleapis.com') ||
+                    idCardImage.includes('firebasestorage.app'))
+                ) {
+                  deletePhotoFromStorage(idCardImage).catch(() => {});
+                }
+                setIdCardImage('');
+              }}
               title="Unggah Foto KTM / KTP"
               subtitle="Pilih foto KTM/KTP dari galeri smartphone Anda"
               isSensitive
             />
+
+            {/* Loading Indicator saat upload foto KTM */}
+            {isUploadingKtm && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, backgroundColor: '#EFF6FF', padding: 8, borderRadius: 8 }}>
+                <ActivityIndicator size="small" color="#0266B3" />
+                <Text style={{ fontSize: 12, color: '#0266B3', fontWeight: '600' }}>
+                  Mengunggah foto KTM ke Firebase Storage...
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
         {/* Submit Button */}
         <TouchableOpacity
-          style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+          style={[
+            styles.submitButton,
+            (isSubmitting || isUploadingKtm) && styles.submitButtonDisabled,
+          ]}
           onPress={handleSubmit}
-          disabled={isSubmitting}
+          disabled={isSubmitting || isUploadingKtm}
           activeOpacity={0.8}
         >
           <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react'; // <-- Ditambahkan useEffect di sini
+import { useEffect, useState } from 'react';
 import {
   FlatList,
   Modal,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SafeImage } from '@/components/SafeImage';
 import { StudentBottomNav } from '@/components/StudentBottomNav';
 import { useAuth } from '@/context/AuthContext';
 import { useCampusData } from '@/context/CampusDataContext';
@@ -211,6 +212,14 @@ export default function StudentClaimsScreen() {
                   <Text style={styles.blockValueSub}>
                     Kategori: {selectedClaim.itemCategory}
                   </Text>
+                  {selectedClaim.itemImage && (
+                    <SafeImage
+                      uri={selectedClaim.itemImage}
+                      fallbackType="found"
+                      style={{ width: '100%', height: 130, borderRadius: 8, marginTop: 8 }}
+                      resizeMode="cover"
+                    />
+                  )}
                 </View>
 
                 <View style={styles.infoBlock}>

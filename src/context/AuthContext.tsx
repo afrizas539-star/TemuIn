@@ -1,7 +1,9 @@
 import * as SecureStore from 'expo-secure-store';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
+import { auth } from '@/config/firebase';
 import {
   apiService,
   ApiError,
@@ -9,7 +11,10 @@ import {
 } from '@/services/api/apiService';
 import {
   DEFAULT_ADMIN_DATA,
-  getAdminByEmailFromFirestore,
+  getAdminProfileByUidOrEmail,
+  getAnyUserProfileByUidOrEmail,
+  getUserProfileByUidOrEmail,
+  validateEmailDomain,
 } from '@/services/firebase/firestoreService';
 import { secureStorage } from '@/services/storage/secureStorage';
 import { AdminProfile, User, UserRole } from '@/types';
@@ -183,71 +188,144 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   /**
    * LOGIN SEBAGAI MAHASISWA (Task 01)
    */
+  /**
+   * LOGIN SEBAGAI MAHASISWA (BAGIAN 3 REQUIREMENT)
+   * Ketentuan:
+   * 1. Akun mahasiswa terdaftar boleh masuk.
+   * 2. Akun mahasiswa tidak terdaftar harus DITOLAK.
+   * 3. Password benar.
+   * 4. Akun petugas TIDAK BOLEH masuk melalui login mahasiswa.
+   * 5. Akun yang tidak aktif harus ditolak.
+   * 6. Profil yang tidak ditemukan di Firestore harus ditolak.
+   * 7. Jika berhasil, arahkan ke Dashboard Mahasiswa.
+   * Domain email mahasiswa: @webmail.umm.ac.id
+   */
   const loginAsStudent = async (
     identifier: string,
-    pass: string,
-    skipApi: boolean = false
+    pass: string
   ): Promise<{ success: boolean; message?: string }> => {
     const trimmed = identifier.trim().toLowerCase();
 
+    // 1. Validasi input form
     if (!trimmed) {
-      return { success: false, message: 'NIM atau Email Kampus wajib diisi.' };
+      return { success: false, message: 'Email kampus (@webmail.umm.ac.id) atau NIM wajib diisi.' };
     }
     if (!pass) {
       return { success: false, message: 'Password akun mahasiswa wajib diisi.' };
     }
-    if (pass.length < 4) {
-      return { success: false, message: 'Password minimal 4 karakter.' };
+
+    // 2. Normalisasi format email mahasiswa UMM
+    let studentEmail = trimmed;
+    if (!trimmed.includes('@')) {
+      // Jika input berupa NIM mahasiswa
+      studentEmail = `${trimmed}@webmail.umm.ac.id`;
     }
 
-    // 1. Coba login ke REST API backend jika belum dicoba
-    if (!skipApi) {
-      try {
-        const apiRes = await apiService.login(trimmed, pass);
-        if (apiRes && apiRes.access_token) {
-          const studentUser: User = {
-            id: apiRes.user.id,
-            name: apiRes.user.name,
-            email: apiRes.user.email,
-            role: 'student',
-            phone: apiRes.user.phone || '081234567890',
-            nim: apiRes.user.nim || (trimmed.includes('@') ? '2210511045' : trimmed),
-            faculty: apiRes.user.faculty || 'Fakultas Ilmu Komputer',
-            photo: apiRes.user.photo || DEFAULT_STUDENT.photo,
-          };
+    // Validasi domain email mahasiswa: hanya @webmail.umm.ac.id
+    if (studentEmail.endsWith('@umm.ac.id') && !studentEmail.endsWith('@webmail.umm.ac.id')) {
+      return {
+        success: false,
+        message: 'Akses ditolak: Akun petugas (@umm.ac.id) tidak dapat masuk melalui Portal Login Mahasiswa.',
+      };
+    }
+    if (!studentEmail.endsWith('@webmail.umm.ac.id')) {
+      return {
+        success: false,
+        message: 'Domain email tidak diizinkan. Gunakan email resmi mahasiswa berakhiran @webmail.umm.ac.id.',
+      };
+    }
 
-          await storeAccessToken(apiRes.access_token);
-          await secureStorage.setObject(SECURE_KEY_USER, studentUser);
-          await secureStorage.setItem(SECURE_KEY_ROLE, 'student');
+    // 3. Autentikasi Kredensial via Firebase Authentication
+    let authUid: string | null = null;
+    let authSuccess = false;
 
-          setUser(studentUser);
-          return { success: true };
-        }
-      } catch (err: any) {
-        if (err instanceof ApiError && (err.statusCode === 401 || err.statusCode === 400)) {
-          return { success: false, message: 'NIM/Email atau Password salah.' };
-        }
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, studentEmail, pass);
+      if (userCredential && userCredential.user) {
+        authUid = userCredential.user.uid;
+        authSuccess = true;
+      }
+    } catch (authError: any) {
+      const code = authError?.code;
+      // Jika kredensial salah / tidak terdaftar di Firebase Auth
+      if (
+        code === 'auth/wrong-password' ||
+        code === 'auth/user-not-found' ||
+        code === 'auth/invalid-credential' ||
+        code === 'auth/invalid-email'
+      ) {
+        return {
+          success: false,
+          message: 'Email atau password akun mahasiswa salah. Silakan periksa kembali.',
+        };
+      }
+      // Log jika Firebase Auth provider belum di-enable di console atau offline
+      console.warn('[AuthContext] Firebase Auth Provider fallback ke database Firestore:', code);
+    }
+
+    // 4. Verifikasi dokumen profil mahasiswa di Firestore (Koleksi users)
+    const firestoreUser = await getUserProfileByUidOrEmail({
+      uid: authUid || undefined,
+      email: studentEmail,
+    });
+
+    if (!firestoreUser) {
+      if (authSuccess) {
+        await signOut(auth).catch(() => {});
+      }
+      return {
+        success: false,
+        message: 'Akun mahasiswa tidak ditemukan di database resmi kampus UMM. Akses ditolak.',
+      };
+    }
+
+    // Validasi password jika autentikasi Firebase Auth belum terkonfigurasi di console
+    if (!authSuccess) {
+      if (!firestoreUser.password || firestoreUser.password !== pass) {
+        return {
+          success: false,
+          message: 'Password akun mahasiswa salah. Silakan periksa kembali data Anda.',
+        };
       }
     }
 
-    // 2. Fallback offline: buat token JWT lokal dan simpan ke SecureStore
+    // 5. Validasi Role Akun: Hanya role 'student' yang diizinkan!
+    if (firestoreUser.role !== 'student') {
+      if (authSuccess) {
+        await signOut(auth).catch(() => {});
+      }
+      return {
+        success: false,
+        message: 'Akses ditolak: Akun Petugas/Admin tidak diizinkan masuk melalui Portal Mahasiswa.',
+      };
+    }
+
+    // 6. Validasi Status Akun: Akun non-aktif wajib ditolak!
+    if (firestoreUser.isActive === false || firestoreUser.status === 'inactive') {
+      if (authSuccess) {
+        await signOut(auth).catch(() => {});
+      }
+      return {
+        success: false,
+        message: 'Akun mahasiswa Anda berstatus non-aktif. Silakan hubungi bagian kemahasiswaan UMM.',
+      };
+    }
+
+    // 7. Seluruh 10 kriteria validasi berhasil -> Simpan data sesi aman ke SecureStore
     const studentUser: User = {
-      id: trimmed.includes('@') ? `mhs-${trimmed.split('@')[0]}` : `mhs-${trimmed}`,
-      name:
-        trimmed === '2210511045' || trimmed.includes('nabila')
-          ? DEFAULT_STUDENT.name
-          : 'Mahasiswa Kampus',
-      email: trimmed.includes('@') ? trimmed : `${trimmed}@mahasiswa.kampus.ac.id`,
+      id: firestoreUser.id,
+      name: firestoreUser.name,
+      email: firestoreUser.email,
       role: 'student',
-      phone: '081234567890',
-      nim: trimmed.includes('@') ? '2210511045' : trimmed,
-      faculty: 'Fakultas Ilmu Komputer',
-      photo: DEFAULT_STUDENT.photo,
+      phone: firestoreUser.phone || '',
+      nim: firestoreUser.nim || studentEmail.split('@')[0],
+      faculty: firestoreUser.faculty || 'Universitas Muhammadiyah Malang',
+      photo: firestoreUser.photo || DEFAULT_STUDENT.photo,
+      status: 'active',
+      isActive: true,
     };
 
     const token = createMockJwt(studentUser);
-
-    // TASK 01: Simpan access_token secara aman ke Expo SecureStore
     await storeAccessToken(token);
     await secureStorage.setObject(SECURE_KEY_USER, studentUser);
     await secureStorage.setItem(SECURE_KEY_ROLE, 'student');
@@ -257,187 +335,357 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   /**
-   * LOGIN SEBAGAI ADMIN / PETUGAS (Task 01)
+   * LOGIN SEBAGAI PETUGAS / ADMIN (BAGIAN 3 REQUIREMENT)
+   * Ketentuan:
+   * 1. Akun petugas terdaftar boleh masuk.
+   * 2. Akun mahasiswa TIDAK BOLEH masuk melalui login petugas.
+   * 3. Password benar.
+   * 4. Akun tidak terdaftar harus DITOLAK.
+   * 5. Akun tidak aktif harus ditolak.
+   * 6. Profil tidak ditemukan di Firestore harus ditolak.
+   * 7. Jika berhasil, arahkan ke Dashboard Petugas/Admin.
+   * Domain email petugas/admin: @umm.ac.id
+   * Pertahankan role Super Admin jika sudah tersedia.
    */
   const loginAsAdmin = async (
     email: string,
-    pass: string,
-    skipApi: boolean = false
+    pass: string
   ): Promise<{ success: boolean; message?: string }> => {
     const trimmedEmail = email.trim().toLowerCase();
 
+    // 1. Validasi input
     if (!trimmedEmail) {
-      return { success: false, message: 'Email akun Gmail petugas wajib diisi.' };
-    }
-    if (!trimmedEmail.includes('@') || !trimmedEmail.includes('.')) {
-      return { success: false, message: 'Format email Gmail tidak valid.' };
+      return { success: false, message: 'Email resmi petugas (@umm.ac.id) wajib diisi.' };
     }
     if (!pass) {
-      return { success: false, message: 'Password akun admin wajib diisi.' };
+      return { success: false, message: 'Password akun petugas/admin wajib diisi.' };
     }
 
-    // 1. Coba login ke REST API backend jika belum dicoba
-    if (!skipApi) {
-      try {
-        const apiRes = await apiService.login(trimmedEmail, pass);
-        if (apiRes && apiRes.access_token) {
-          const adminUser: User = {
-            id: apiRes.user.id,
-            name: apiRes.user.name,
-            email: apiRes.user.email,
-            role: 'admin',
-            phone: apiRes.user.phone || '081298765432',
-            photo: apiRes.user.photo || DEFAULT_ADMIN.avatarUri,
-          };
-
-          await storeAccessToken(apiRes.access_token);
-          await secureStorage.setObject(SECURE_KEY_USER, adminUser);
-          await secureStorage.setItem(SECURE_KEY_ROLE, 'admin');
-
-          setUser(adminUser);
-          return { success: true };
-        }
-      } catch (err: any) {
-        if (err instanceof ApiError && (err.statusCode === 401 || err.statusCode === 400)) {
-          return { success: false, message: 'Email atau password admin salah.' };
-        }
-      }
-    }
-
-    // 2. Fallback Firestore
-    try {
-      const adminData = await getAdminByEmailFromFirestore(trimmedEmail);
-
-      if (!adminData) {
-        return {
-          success: false,
-          message: 'Akun Gmail petugas tidak terdaftar. Periksa kembali email Anda.',
-        };
-      }
-
-      if (adminData.password !== pass) {
-        return {
-          success: false,
-          message: 'Password akun admin salah. Silakan coba lagi.',
-        };
-      }
-
-      const adminUser: User = {
-        id: 'admin-1',
-        name: adminData.name,
-        email: adminData.email,
-        role: 'admin',
-        phone: adminData.phone,
-        photo: adminData.avatarUri,
+    // 2. Validasi domain email petugas: Wajib @umm.ac.id dan BUKAN @webmail.umm.ac.id
+    if (trimmedEmail.endsWith('@webmail.umm.ac.id')) {
+      return {
+        success: false,
+        message: 'Akses ditolak: Akun mahasiswa tidak diizinkan masuk melalui Portal Petugas/Admin. Silakan gunakan Portal Login Mahasiswa.',
       };
-
-      const token = createMockJwt(adminUser);
-
-      // TASK 01: Simpan access_token secara aman ke Expo SecureStore
-      await storeAccessToken(token);
-      await secureStorage.setObject(SECURE_KEY_USER, adminUser);
-      await secureStorage.setItem(SECURE_KEY_ROLE, 'admin');
-
-      setAdminProfile(adminData);
-      setUser(adminUser);
-      return { success: true };
-    } catch (err) {
-      console.error('Error login admin via Firestore fallback:', err);
-      return { success: false, message: 'Gagal terhubung ke database autentikasi.' };
     }
+    if (!trimmedEmail.endsWith('@umm.ac.id')) {
+      return {
+        success: false,
+        message: 'Domain email tidak valid. Petugas wajib menggunakan email resmi berakhiran @umm.ac.id.',
+      };
+    }
+
+    // 3. Autentikasi Firebase Authentication
+    let authUid: string | null = null;
+    let authSuccess = false;
+
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, trimmedEmail, pass);
+      if (userCredential && userCredential.user) {
+        authUid = userCredential.user.uid;
+        authSuccess = true;
+      }
+    } catch (authError: any) {
+      const code = authError?.code;
+      if (
+        code === 'auth/wrong-password' ||
+        code === 'auth/user-not-found' ||
+        code === 'auth/invalid-credential' ||
+        code === 'auth/invalid-email'
+      ) {
+        return {
+          success: false,
+          message: 'Email atau password akun petugas salah. Silakan coba lagi.',
+        };
+      }
+      console.warn('[AuthContext] Firebase Auth Admin fallback ke database Firestore:', code);
+    }
+
+    // 4. Verifikasi dokumen profil petugas/admin di Firestore (Koleksi admins / users)
+    const firestoreAdmin = await getAdminProfileByUidOrEmail({
+      uid: authUid || undefined,
+      email: trimmedEmail,
+    });
+
+    if (!firestoreAdmin) {
+      if (authSuccess) {
+        await signOut(auth).catch(() => {});
+      }
+      return {
+        success: false,
+        message: 'Akun petugas tidak terdaftar di database pengelola kampus UMM. Akses ditolak.',
+      };
+    }
+
+    // Validasi password jika Firebase Auth tadi fallback
+    if (!authSuccess) {
+      if (!firestoreAdmin.password || firestoreAdmin.password !== pass) {
+        return {
+          success: false,
+          message: 'Password akun petugas salah. Silakan coba lagi.',
+        };
+      }
+    }
+
+    // 5. Validasi Role: Akun mahasiswa dilarang masuk ke portal petugas!
+    if (firestoreAdmin.role === 'student') {
+      if (authSuccess) {
+        await signOut(auth).catch(() => {});
+      }
+      return {
+        success: false,
+        message: 'Akses ditolak: Akun mahasiswa tidak memiliki wewenang administratif sebagai Petugas.',
+      };
+    }
+
+    // 6. Validasi Status Akun: Akun non-aktif wajib ditolak!
+    if (firestoreAdmin.isActive === false || firestoreAdmin.status === 'inactive') {
+      if (authSuccess) {
+        await signOut(auth).catch(() => {});
+      }
+      return {
+        success: false,
+        message: 'Akun petugas Anda berstatus non-aktif. Silakan hubungi Super Admin / Koordinator Keamanan UMM.',
+      };
+    }
+
+    // 7. Pertahankan role Super Admin jika akun memiliki role 'super_admin'
+    const effectiveRole: UserRole =
+      firestoreAdmin.role === 'super_admin' ? 'super_admin' : 'admin';
+
+    const adminUser: User = {
+      id: firestoreAdmin.id,
+      name: firestoreAdmin.name,
+      email: firestoreAdmin.email,
+      role: effectiveRole,
+      phone: firestoreAdmin.phone || '',
+      photo: firestoreAdmin.photo || DEFAULT_ADMIN.avatarUri,
+      status: 'active',
+      isActive: true,
+    };
+
+    const newAdminProfile: AdminProfile = {
+      name: firestoreAdmin.name,
+      email: firestoreAdmin.email,
+      phone: firestoreAdmin.phone || '',
+      avatarUri: firestoreAdmin.photo || DEFAULT_ADMIN.avatarUri,
+      role:
+        effectiveRole === 'super_admin'
+          ? 'Super Admin'
+          : 'Petugas Pengelola Lost & Found Kampus',
+      officeLocation: firestoreAdmin.officeLocation || 'Posko Keamanan Pusat (Gedung Rektorat Lt. 1)',
+      status: 'active',
+      isActive: true,
+    };
+
+    const token = createMockJwt(adminUser);
+    await storeAccessToken(token);
+    await secureStorage.setObject(SECURE_KEY_USER, adminUser);
+    await secureStorage.setItem(SECURE_KEY_ROLE, effectiveRole);
+    await secureStorage.setObject(SECURE_KEY_ADMIN_PROFILE, newAdminProfile);
+
+    setAdminProfile(newAdminProfile);
+    setUser(adminUser);
+    return { success: true };
   };
 
   /**
-   * Login fleksibel dengan auto-deteksi role & REST API call (Task 01)
+   * SATU LOGIN TERPADU MAHASISWA & PETUGAS/ADMIN (PERSYARATAN 8)
+   * 
+   * Alur:
+   * 1. Autentikasi kredensial via Firebase Authentication.
+   * 2. Ambil UID pengguna terautentikasi.
+   * 3. Cari profil pengguna di database Firestore berdasarkan UID (atau email fallback).
+   * 4. Tolak akun tanpa profil di Firestore atau berstatus non-aktif (panggil signOut).
+   * 5. Baca role resmi dari Firestore (bukan dari input pengguna / bukan semata email).
+   * 6. Simpan sesi aman ke SecureStore dan arahkan secara otomatis:
+   *    - student -> /home
+   *    - admin / super_admin -> /admin/dashboard
    */
   const login = async (
     emailOrNim: string,
-    pass: string,
-    preferredRole?: UserRole
+    pass: string
   ): Promise<{ success: boolean; role?: UserRole; message?: string }> => {
     const trimmed = emailOrNim.trim().toLowerCase();
 
-    // 1. Coba REST API login terlebih dahulu
+    // 1. Validasi input
+    if (!trimmed) {
+      return { success: false, message: 'Email kampus wajib diisi.' };
+    }
+    if (!pass) {
+      return { success: false, message: 'Password wajib diisi.' };
+    }
+
+    // Normalisasi jika mahasiswa memasukkan NIM (hanya angka)
+    let emailToAuth = trimmed;
+    if (!trimmed.includes('@') && /^\d+$/.test(trimmed)) {
+      emailToAuth = `${trimmed}@webmail.umm.ac.id`;
+    }
+
+    // 2. Autentikasi Kredensial via Firebase Authentication
+    let authUid: string | null = null;
+    let authSuccess = false;
+
     try {
-      const res = await apiService.login(trimmed, pass);
-      if (res && res.access_token && res.user) {
-        const loggedUser: User = {
-          id: res.user.id,
-          name: res.user.name,
-          email: res.user.email,
-          role: res.user.role,
-          phone: res.user.phone || '081234567890',
-          nim: res.user.nim,
-          faculty: res.user.faculty,
-          photo: res.user.photo,
+      const userCredential = await signInWithEmailAndPassword(auth, emailToAuth, pass);
+      if (userCredential && userCredential.user) {
+        authUid = userCredential.user.uid;
+        authSuccess = true;
+      }
+    } catch (authError: any) {
+      const code = authError?.code;
+      if (
+        code === 'auth/wrong-password' ||
+        code === 'auth/user-not-found' ||
+        code === 'auth/invalid-credential' ||
+        code === 'auth/invalid-email'
+      ) {
+        return {
+          success: false,
+          message: 'Email atau password salah. Silakan periksa kembali data Anda.',
         };
-
-        // Simpan access_token ke SecureStore
-        await storeAccessToken(res.access_token);
-        await secureStorage.setObject(SECURE_KEY_USER, loggedUser);
-        await secureStorage.setItem(SECURE_KEY_ROLE, loggedUser.role);
-
-        if (loggedUser.role === 'admin') {
-          setAdminProfile((prev) => ({
-            ...prev,
-            name: loggedUser.name,
-            email: loggedUser.email,
-            phone: loggedUser.phone || prev.phone,
-            avatarUri: loggedUser.photo || prev.avatarUri,
-          }));
-        }
-
-        setUser(loggedUser);
-        return { success: true, role: loggedUser.role };
       }
-    } catch (err: any) {
-      // Jika server secara eksplisit mengembalikan 401 atau 400 (password/email salah)
-      if (err instanceof ApiError && (err.statusCode === 401 || err.statusCode === 400)) {
-        return { success: false, message: 'Email/NIM atau password salah.' };
+      console.warn('[AuthContext] Firebase Auth fallback ke Firestore:', code);
+    }
+
+    // 3. Ambil Profil Pengguna dari Firestore berdasarkan UID atau Email resmi
+    const profile = await getAnyUserProfileByUidOrEmail({
+      uid: authUid || undefined,
+      email: emailToAuth,
+    });
+
+    // 4. Tolak jika akun TIDAK memiliki profil di Firestore
+    if (!profile) {
+      if (authSuccess) {
+        await signOut(auth).catch(() => {});
+      }
+      return {
+        success: false,
+        message: 'Akun Anda tidak memiliki profil yang terdaftar di database kampus UMM. Akses ditolak.',
+      };
+    }
+
+    // 5. Validasi password jika autentikasi Firebase Auth belum terkonfigurasi di console (fallback)
+    if (!authSuccess) {
+      if (!profile.password || profile.password !== pass) {
+        return {
+          success: false,
+          message: 'Email atau password salah. Silakan periksa kembali data Anda.',
+        };
       }
     }
 
-    // 2. Fallback routing jika server offline (skipApi = true agar tidak coba fetch ulang)
-    if (preferredRole === 'admin') {
-      const adminRes = await loginAsAdmin(emailOrNim, pass, true);
-      return { ...adminRes, role: 'admin' };
+    // 6. Validasi status akun (Akun non-aktif wajib ditolak)
+    if (profile.isActive === false || profile.status === 'inactive') {
+      if (authSuccess) {
+        await signOut(auth).catch(() => {});
+      }
+      return {
+        success: false,
+        message: 'Akun Anda berstatus non-aktif. Silakan hubungi pengelola kampus atau bagian kemahasiswaan UMM.',
+      };
     }
 
-    const isEmailFormat = trimmed.includes('@') && trimmed.includes('.');
-    const adminEmail = adminProfile.email.trim().toLowerCase();
-    const isAdminAccount =
-      trimmed === adminEmail ||
-      trimmed === 'admin.kampus@gmail.com' ||
-      trimmed.includes('admin') ||
-      trimmed.includes('petugas');
+    // 7. Evaluasi role resmi dari profil Firestore yang tepercaya
+    const rawRole = String(profile.role || '').toLowerCase();
+    let resolvedRole: UserRole | null = null;
 
-    if (isEmailFormat && isAdminAccount) {
-      const adminResult = await loginAsAdmin(emailOrNim, pass, true);
-      if (adminResult.success) return { ...adminResult, role: 'admin' };
+    if (rawRole === 'student') {
+      resolvedRole = 'student';
+    } else if (rawRole.includes('super')) {
+      resolvedRole = 'super_admin';
+    } else if (rawRole === 'admin' || rawRole.includes('petugas') || rawRole.includes('keamanan')) {
+      resolvedRole = 'admin';
     }
 
-    const studentResult = await loginAsStudent(emailOrNim, pass, true);
-    return { ...studentResult, role: 'student' };
+    if (!resolvedRole) {
+      if (authSuccess) {
+        await signOut(auth).catch(() => {});
+      }
+      return {
+        success: false,
+        message: 'Role akun tidak valid atau tidak dikenali oleh sistem. Akses ditolak.',
+      };
+    }
+
+    // 8. Simpan Sesi dan Kembalikan Role Resmi
+    if (resolvedRole === 'student') {
+      const studentUser: User = {
+        id: profile.id,
+        name: profile.name,
+        email: profile.email,
+        role: 'student',
+        phone: profile.phone || '',
+        nim: profile.nim || emailToAuth.split('@')[0],
+        faculty: profile.faculty || 'Universitas Muhammadiyah Malang',
+        photo: profile.photo || DEFAULT_STUDENT.photo,
+        status: 'active',
+        isActive: true,
+      };
+
+      const token = createMockJwt(studentUser);
+      await storeAccessToken(token);
+      await secureStorage.setObject(SECURE_KEY_USER, studentUser);
+      await secureStorage.setItem(SECURE_KEY_ROLE, 'student');
+
+      setUser(studentUser);
+      return { success: true, role: 'student' };
+    } else {
+      // Petugas atau Admin (termasuk Super Admin jika akun memiliki role super_admin)
+      const effectiveRole: UserRole = resolvedRole;
+      const adminUser: User = {
+        id: profile.id,
+        name: profile.name,
+        email: profile.email,
+        role: effectiveRole,
+        phone: profile.phone || '',
+        photo: profile.photo || DEFAULT_ADMIN.avatarUri,
+        status: 'active',
+        isActive: true,
+      };
+
+      const newAdminProfile: AdminProfile = {
+        name: profile.name,
+        email: profile.email,
+        phone: profile.phone || '',
+        avatarUri: profile.photo || DEFAULT_ADMIN.avatarUri,
+        role:
+          effectiveRole === 'super_admin'
+            ? 'Super Admin'
+            : 'Petugas Pengelola Lost & Found Kampus',
+        officeLocation:
+          profile.officeLocation || 'Posko Keamanan Pusat (Gedung Rektorat Lt. 1)',
+        status: 'active',
+        isActive: true,
+      };
+
+      const token = createMockJwt(adminUser);
+      await storeAccessToken(token);
+      await secureStorage.setObject(SECURE_KEY_USER, adminUser);
+      await secureStorage.setItem(SECURE_KEY_ROLE, effectiveRole);
+      await secureStorage.setObject(SECURE_KEY_ADMIN_PROFILE, newAdminProfile);
+
+      setAdminProfile(newAdminProfile);
+      setUser(adminUser);
+      return { success: true, role: effectiveRole };
+    }
   };
 
   /**
-   * LOGOUT (Task 03)
-   * Menghapus access_token dari SecureStore:
-   *   await SecureStore.deleteItemAsync('access_token');
-   * Reset authentication state (user = null, isAuthenticated = false).
+   * LOGOUT
+   * Menghapus sesi Firebase Authentication dan SecureStore
    */
   const logout = async () => {
     try {
-      // TASK 03: Hapus access_token dari SecureStore
+      await signOut(auth).catch(() => {});
       await removeAccessToken();
       await secureStorage.removeItem('auth_session_token');
       await secureStorage.removeItem(SECURE_KEY_USER);
       await secureStorage.removeItem(SECURE_KEY_ROLE);
-      console.log('[AuthContext] Logout berhasil: Token dihapus dari SecureStore.');
+      console.log('[AuthContext] Logout berhasil: Sesi Firebase & SecureStore dibersihkan.');
     } catch (e) {
       console.warn('Gagal menghapus token sesi:', e);
     } finally {
-      // Reset state autentikasi
       setUser(null);
     }
   };
@@ -506,7 +754,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const role = user ? user.role : null;
   const isAuthenticated = !!user;
-  const isAdmin = role === 'admin';
+  const isAdmin = role === 'admin' || role === 'super_admin';
   const isStudent = role === 'student';
 
   return (

@@ -1,0 +1,67 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        firestore.exists(/databases/(default)/documents/admins/$(request.auth.uid)) ||
+        (firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+         firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin']) ||
+        (request.auth.token.email != null &&
+         request.auth.token.email.matches('.*@umm[.]ac[.]id$') &&
+         !request.auth.token.email.matches('.*@webmail[.]umm[.]ac[.]id$'))
+      );
+    }
+
+    // 1. Folder items: seluruh foto barang hilang dan temuan DAPAT DIBACA oleh seluruh pengguna
+    match /items/{allPaths=**} {
+      allow read: if true;
+    }
+
+    // Mahasiswa & Petugas dapat mengunggah foto barang hilang
+    match /items/lost/{allPaths=**} {
+      allow write: if isAuthenticated()
+                   && isImage()
+                   && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // HANYA Petugas/Admin yang dapat mengunggah atau mengganti foto barang temuan
+    match /items/found/{allPaths=**} {
+      allow write: if isAdmin()
+                   && isImage()
+                   && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // Path legacy /items/{fileName} hanya dapat ditulis oleh Admin
+    match /items/{fileName} {
+      allow write: if isAdmin()
+                   && isImage()
+                   && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // 2. Folder handover: foto serah terima barang oleh Petugas
+    match /handover/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin()
+                   && isImage()
+                   && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // 3. Folder id_cards: foto dokumen KTM/KTP rahasia mahasiswa untuk verifikasi klaim
+    match /id_cards/{allPaths=**} {
+      allow read: if isAdmin() || isAuthenticated();
+      allow write: if isAuthenticated()
+                   && isImage()
+                   && request.resource.size < 10 * 1024 * 1024;
+    }
+  }
+}

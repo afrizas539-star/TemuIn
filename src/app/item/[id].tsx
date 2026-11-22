@@ -4,7 +4,6 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import {
   Alert,
-  Image,
   Modal,
   Platform,
   ScrollView,
@@ -16,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiErrorMessage } from '@/components/ApiErrorMessage';
+import { SafeImage } from '@/components/SafeImage';
 import { StatusBadge } from '@/components/StatusBadge';
 import { STATUS_COLORS } from '@/constants/initialData';
 import { useAuth } from '@/context/AuthContext';
@@ -163,7 +163,12 @@ export default function ItemDetailScreen() {
       >
         {/* Full Image */}
         <View style={styles.imageContainer}>
-          <Image source={{ uri: item.image }} style={styles.image} resizeMode="cover" />
+          <SafeImage
+            uri={item.image}
+            fallbackType={item.type}
+            style={styles.image}
+            resizeMode="cover"
+          />
           <View
             style={[
               styles.typeBadgeOverlay,
@@ -208,6 +213,14 @@ export default function ItemDetailScreen() {
               <View style={styles.infoTextBox}>
                 <Text style={styles.infoLabel}>Lokasi Kejadian / Ditemukan</Text>
                 <Text style={styles.infoValue}>{item.location}</Text>
+                {item.locationDetail && (
+                  <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons name="shield-checkmark" size={13} color="#15803D" />
+                    <Text style={{ fontSize: 11, color: '#15803D', fontWeight: '600' }}>
+                      Kampus III UMM ({item.locationDetail.latitude.toFixed(5)}, {item.locationDetail.longitude.toFixed(5)})
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
 
@@ -253,13 +266,14 @@ export default function ItemDetailScreen() {
           )}
 
           {/* SOP Pengambilan Barang Card */}
-          {/* SOP Pengambilan Barang Card */}
           <View style={styles.sopPickupCard}>
             <Ionicons name="shield-checkmark" size={20} color="#2563EB" />
             <View style={{ flex: 1 }}>
-              <Text style={styles.sopPickupTitle}>Prosedur Pengambilan Barang</Text>
+              <Text style={styles.sopPickupTitle}>Prosedur Klaim & Pengambilan Barang</Text>
               <Text style={styles.sopPickupText}>
-                Pengambilan barang temuan hanya dilayani langsung oleh Petugas Keamanan di Posko Kampus. Mahasiswa tidak melakukan klaim mandiri melalui aplikasi — silakan datangi posko dengan membawa KTM aktif dan menyebutkan ciri khusus barang.
+                {item.type === 'found'
+                  ? 'Jika barang temuan ini milik Anda, silakan ajukan klaim melalui tombol di bawah dengan melampirkan foto KTM dan ciri khusus barang. Setelah diverifikasi oleh petugas, Anda dapat mengambil barang fisik di Posko Keamanan Kampus.'
+                  : 'Laporan kehilangan ini sedang dalam penanganan petugas keamanan kampus. Jika Anda menemukan barang yang sesuai, segera hubungi posko keamanan.'}
               </Text>
             </View>
           </View>
@@ -324,18 +338,12 @@ export default function ItemDetailScreen() {
           </TouchableOpacity>
         ) : !isUserAdmin && isItemAvailable ? (
           <TouchableOpacity
-            style={styles.pickupInfoBtn}
+            style={styles.mainClaimBtn}
             activeOpacity={0.8}
-            onPress={() =>
-              Alert.alert(
-                'Prosedur Pengambilan Barang Temuan',
-                'Pengambilan barang temuan harus melalui verifikasi langsung oleh petugas di Posko Keamanan Kampus.\n\nLangkah pengambilan:\n1. Kunjungi Posko Keamanan Kampus.\n2. Bawa Kartu Tanda Mahasiswa (KTM) aktif.\n3. Jelaskan rincian dan ciri khusus barang yang Anda kenali kepada petugas.\n4. Petugas akan memvalidasi bukti kepemilikan dan menyerahkan barang fisik.',
-                [{ text: 'Saya Mengerti' }]
-              )
-            }
+            onPress={() => router.push(`/claim/${item.id}` as any)}
           >
-            <Ionicons name="information-circle-outline" size={18} color="#FFFFFF" />
-            <Text style={styles.pickupInfoBtnText}>Prosedur Pengambilan</Text>
+            <Ionicons name="hand-right-outline" size={18} color="#FFFFFF" />
+            <Text style={styles.mainClaimBtnText}>Ajukan Klaim Barang Ini</Text>
           </TouchableOpacity>
         ) : (
           <View style={styles.disabledClaimBtn}>

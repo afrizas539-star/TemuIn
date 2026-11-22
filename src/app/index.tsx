@@ -65,10 +65,10 @@ export default function WelcomeSplashScreen() {
     // Transisi singkat setelah autentifikasi selesai diverifikasi
     const timer = setTimeout(() => {
       if (!isAuthenticated || !role) {
-        // Belum login -> Halaman Login Role
+        // Belum login -> Halaman Login Mahasiswa
         router.replace('/login');
-      } else if (role === 'admin') {
-        // Admin -> Dashboard Admin
+      } else if (role === 'admin' || role === 'super_admin') {
+        // Admin / Super Admin -> Dashboard Admin
         router.replace('/admin/dashboard');
       } else {
         // Mahasiswa -> Dashboard Mahasiswa

@@ -48,7 +48,7 @@ export default function LoginScreen() {
   // Jika sudah login, langsung arahkan ke dashboard yang sesuai
   useEffect(() => {
     if (!isLoadingAuth && isAuthenticated && role) {
-      if (role === 'admin') {
+      if (role === 'admin' || role === 'super_admin') {
         router.replace('/admin/dashboard');
       } else {
         router.replace('/home');
@@ -57,7 +57,8 @@ export default function LoginScreen() {
   }, [isAuthenticated, role, isLoadingAuth]);
 
   /**
-   * Fungsi login tunggal — menggunakan JWT REST API via apiService & AuthContext
+   * Fungsi Login Gabungan: Mahasiswa dan Petugas/Admin menggunakan halaman dan fungsi yang sama.
+   * Role ditentukan otomatis dari profil Firestore tepercaya berdasarkan UID autentikasi.
    */
   const handleLogin = async () => {
     setApiError(null);
@@ -65,11 +66,11 @@ export default function LoginScreen() {
     const trimmedId = identifier.trim();
 
     if (!trimmedId) {
-      setApiError('Email atau NIM wajib diisi.');
+      setApiError('Silakan masukkan email kampus terdaftar (@webmail.umm.ac.id atau @umm.ac.id).');
       return;
     }
     if (!password) {
-      setApiError('Password wajib diisi.');
+      setApiError('Silakan masukkan kata sandi akun Anda.');
       return;
     }
 
@@ -78,13 +79,14 @@ export default function LoginScreen() {
 
       const res = await login(trimmedId, password);
       if (res.success) {
-        if (res.role === 'admin') {
+        // Pengarahan otomatis berdasarkan role Firestore
+        if (res.role === 'admin' || res.role === 'super_admin') {
           router.replace('/admin/dashboard');
         } else {
           router.replace('/home');
         }
       } else {
-        setApiError(res.message || 'Login gagal. Periksa kembali email/NIM dan password.');
+        setApiError(res.message || 'Login gagal. Periksa kembali email dan kata sandi Anda.');
       }
     } catch (err) {
       setApiError(err);
@@ -153,7 +155,10 @@ export default function LoginScreen() {
 
         {/* Form Card */}
         <View style={styles.formCard}>
-          <Text style={styles.formTitle}>Masuk ke Akun</Text>
+          <Text style={styles.formTitle}>Masuk ke Akun TemuIn</Text>
+          <Text style={{ fontSize: 12, color: '#64748B', marginBottom: 16, lineHeight: 18 }}>
+            Gunakan email resmi kampus UMM Anda (@webmail.umm.ac.id untuk mahasiswa atau @umm.ac.id untuk petugas). Sistem akan mengarahkan dashboard secara otomatis sesuai role Anda.
+          </Text>
 
           {/* Reusable HTTP & API Error Display */}
           <ApiErrorMessage
@@ -164,12 +169,12 @@ export default function LoginScreen() {
 
           {/* Email / NIM Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Email / NIM</Text>
+            <Text style={styles.inputLabel}>Email Kampus / Akun UMM</Text>
             <View style={styles.inputWrap}>
-              <Ionicons name="person-outline" size={20} color="#64748B" />
+              <Ionicons name="mail-outline" size={20} color="#64748B" />
               <TextInput
                 style={styles.textInput}
-                placeholder="Email atau NIM mahasiswa"
+                placeholder="nama@webmail.umm.ac.id atau nama@umm.ac.id"
                 placeholderTextColor="#94A3B8"
                 value={identifier}
                 onChangeText={setIdentifier}
@@ -182,12 +187,12 @@ export default function LoginScreen() {
 
           {/* Password Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Password</Text>
+            <Text style={styles.inputLabel}>Kata Sandi (Password)</Text>
             <View style={styles.inputWrap}>
               <Ionicons name="lock-closed-outline" size={20} color="#64748B" />
               <TextInput
                 style={styles.textInput}
-                placeholder="Masukkan kata sandi"
+                placeholder="Masukkan kata sandi akun"
                 placeholderTextColor="#94A3B8"
                 value={password}
                 onChangeText={setPassword}
@@ -215,13 +220,11 @@ export default function LoginScreen() {
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
               <>
-                <Text style={styles.submitBtnText}>Masuk</Text>
+                <Text style={styles.submitBtnText}>Masuk ke Sistem</Text>
                 <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
               </>
             )}
           </TouchableOpacity>
-
-
         </View>
 
         {/* Security Notice */}

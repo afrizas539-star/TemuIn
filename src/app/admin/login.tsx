@@ -22,7 +22,7 @@ import { useAuth } from '@/context/AuthContext';
 export default function AdminLoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { login, isAdminAuthenticated, adminProfile, isLoadingAuth } = useAuth();
+  const { loginAsAdmin, isAdminAuthenticated, adminProfile, isLoadingAuth } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,27 +33,32 @@ export default function AdminLoginScreen() {
   useEffect(() => {
     if (isAdminAuthenticated) {
       router.replace('/admin/dashboard');
+    } else {
+      // Sesuai Persyaratan 8: Aplikasi hanya memiliki SATU halaman login
+      // Seluruh login Mahasiswa dan Petugas diarahkan ke /login
+      router.replace('/login');
     }
   }, [isAdminAuthenticated]);
 
   const handleLogin = async () => {
     setApiError(null);
-    if (!email.trim()) {
-      setApiError('Silakan masukkan akun email Anda.');
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed) {
+      setApiError('Silakan masukkan email resmi petugas UMM.');
       return;
     }
     if (!password) {
-      setApiError('Silakan masukkan password akun.');
+      setApiError('Silakan masukkan password akun petugas.');
       return;
     }
 
     try {
       setIsSubmitting(true);
-      const res = await login(email, password);
+      const res = await loginAsAdmin(trimmed, password);
       if (res.success) {
         router.replace('/admin/dashboard');
       } else {
-        setApiError(res.message || 'Login gagal. Silakan periksa kembali data Anda.');
+        setApiError(res.message || 'Login petugas gagal. Silakan periksa kembali data Anda.');
       }
     } catch (e) {
       setApiError(e);
@@ -130,14 +135,14 @@ export default function AdminLoginScreen() {
             onDismiss={() => setApiError(null)}
           />
 
-          {/* Gmail Input */}
+          {/* Email Petugas Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Akun Gmail</Text>
+            <Text style={styles.inputLabel}>Email Resmi Petugas (@umm.ac.id)</Text>
             <View style={styles.inputWrapper}>
               <Ionicons name="mail-outline" size={18} color="#64748B" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="nama.petugas@gmail.com"
+                placeholder="nama.petugas@umm.ac.id"
                 placeholderTextColor="#94A3B8"
                 value={email}
                 onChangeText={(text) => {
@@ -198,21 +203,15 @@ export default function AdminLoginScreen() {
             )}
           </TouchableOpacity>
 
-          {/* Info Akun */}
+          {/* Petunjuk Kebijakan Akun Petugas */}
           <View style={styles.demoCard}>
             <View style={styles.demoHeader}>
-              <Ionicons name="information-circle" size={16} color="#4F46E5" />
-              <Text style={styles.demoTitle}>Akun Petugas:</Text>
+              <Ionicons name="shield-checkmark" size={16} color="#0266B3" />
+              <Text style={styles.demoTitle}>Kebijakan Akses Pengelola:</Text>
             </View>
-            <Text style={styles.demoCreds}>
-              Gmail: <Text style={styles.demoCredsBold}>{adminProfile.email}</Text>
+            <Text style={[styles.demoCreds, { color: '#64748B', lineHeight: 18 }]}>
+              Hanya akun Petugas/Admin dengan domain resmi <Text style={styles.demoCredsBold}>@umm.ac.id</Text> yang telah terdaftar di database resmi kampus yang diizinkan mengakses panel ini.
             </Text>
-            <Text style={[styles.demoCreds, { marginTop: 4, color: '#64748B' }]}>
-              Password: <Text style={styles.demoCredsBold}>{adminProfile.password || 'admin123kampus'}</Text>
-            </Text>
-            <TouchableOpacity style={styles.fillDemoBtn} onPress={handleFillDemo}>
-              <Text style={styles.fillDemoBtnText}>Isi Akun Demo Otomatis</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>

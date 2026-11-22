@@ -14,29 +14,39 @@ import {
 } from 'react-native';
 
 import { AdminBottomNav } from '@/components/AdminBottomNav';
+import { AdminCameraPicker } from '@/components/AdminCameraPicker';
 import { AdminHeader } from '@/components/AdminHeader';
 import { ItemCard } from '@/components/ItemCard';
 import { StatusBadge } from '@/components/StatusBadge';
 import { CAMPUS_CATEGORIES, STATUS_COLORS } from '@/constants/initialData';
 import { useAuth } from '@/context/AuthContext';
 import { useCampusData } from '@/context/CampusDataContext';
+import { deletePhotoFromStorage } from '@/services/firebase/storageService';
 import { CampusItem, ItemStatus } from '@/types';
 
 export default function AdminItemsScreen() {
   const router = useRouter();
-  const { isAdminAuthenticated, isLoadingAuth } = useAuth();
-  const { items, updateItemStatus, deleteItem } = useCampusData();
+  const { isAdminAuthenticated, role, isLoadingAuth } = useAuth();
+  const { items, updateItemStatus, updateItem, deleteItem } = useCampusData();
 
   useEffect(() => {
-    if (!isLoadingAuth && !isAdminAuthenticated) {
-      router.replace('/admin/login');
+    if (!isLoadingAuth) {
+      if (!isAdminAuthenticated) {
+        if (role === 'student') {
+          Alert.alert('Akses Ditolak', 'Mahasiswa tidak memiliki izin mengakses panel pengelolaan barang.');
+          router.replace('/home');
+        } else {
+          router.replace('/login');
+        }
+      }
     }
-  }, [isAdminAuthenticated, isLoadingAuth]);
+  }, [isAdminAuthenticated, role, isLoadingAuth]);
 
   const [search, setSearch] = useState('');
   const [selectedCat, setSelectedCat] = useState('Semua');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('Semua Status');
   const [selectedItemForStatus, setSelectedItemForStatus] = useState<CampusItem | null>(null);
+  const [selectedItemForPhoto, setSelectedItemForPhoto] = useState<CampusItem | null>(null);
 
   // PRIORITAS 8: Status Barang Hilang dan Temuan Dipisah
   const LOST_STATUSES: ItemStatus[] = [
@@ -180,6 +190,15 @@ export default function AdminItemsScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
+                style={[styles.changeStatusBtn, { backgroundColor: '#F0F9FF', borderColor: '#BAE6FD' }]}
+                onPress={() => setSelectedItemForPhoto(item)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="camera" size={15} color="#0266B3" />
+                <Text style={[styles.changeStatusBtnText, { color: '#0266B3' }]}>Foto</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 style={styles.deleteQuickBtn}
                 onPress={() => handleDeleteItem(item)}
                 activeOpacity={0.8}
@@ -266,6 +285,84 @@ export default function AdminItemsScreen() {
                     </TouchableOpacity>
                   );
                 })}
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Dokumentasi & Edit Foto Barang (Fitur Kamera Petugas) */}
+      <Modal
+        visible={selectedItemForPhoto !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedItemForPhoto(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {selectedItemForPhoto && (
+              <>
+                <View style={styles.modalHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.modalTitle}>Perbarui Foto Barang</Text>
+                    <Text style={styles.modalItemTitle} numberOfLines={1}>
+                      {selectedItemForPhoto.title}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setSelectedItemForPhoto(null)}
+                    style={{ padding: 4 }}
+                  >
+                    <Ionicons name="close" size={24} color="#0F172A" />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.modalDesc}>
+                  Gunakan kamera perangkat untuk memotret kondisi fisik barang terkini atau pilih foto dari galeri. Foto otomatis disimpan ke Firebase Storage.
+                </Text>
+
+                <AdminCameraPicker
+                  imageUri={selectedItemForPhoto.image}
+                  onImageUploaded={async (newUrl) => {
+                    const oldUrl = selectedItemForPhoto.image;
+                    await updateItem(selectedItemForPhoto.id, { image: newUrl });
+                    // Hapus foto lama dari Storage setelah pembaruan Firestore berhasil
+                    if (
+                      oldUrl &&
+                      oldUrl !== newUrl &&
+                      (oldUrl.includes('firebasestorage.googleapis.com') ||
+                        oldUrl.includes('firebasestorage.app'))
+                    ) {
+                      deletePhotoFromStorage(oldUrl).catch(() => {});
+                    }
+                    setSelectedItemForPhoto(null);
+                    Alert.alert('Sukses', 'Foto barang berhasil diperbarui di katalog kampus!');
+                  }}
+                  onImageRemoved={async () => {
+                    const oldUrl = selectedItemForPhoto.image;
+                    const fallbackPlaceholder =
+                      selectedItemForPhoto.type === 'found'
+                        ? 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?q=80&w=600&auto=format&fit=crop'
+                        : 'https://images.unsplash.com/photo-1594980596870-8aa52a78d8cd?q=80&w=600&auto=format&fit=crop';
+                    await updateItem(selectedItemForPhoto.id, {
+                      image: fallbackPlaceholder,
+                    });
+                    if (
+                      oldUrl &&
+                      (oldUrl.includes('firebasestorage.googleapis.com') ||
+                        oldUrl.includes('firebasestorage.app'))
+                    ) {
+                      deletePhotoFromStorage(oldUrl).catch(() => {});
+                    }
+                    setSelectedItemForPhoto(null);
+                    Alert.alert('Info', 'Foto barang telah dihapus dan diganti placeholder.');
+                  }}
+                  title="Kamera & Foto Barang"
+                  subtitle="Ambil foto fisik barang langsung dengan kamera HP"
+                  storageFolder={
+                    selectedItemForPhoto.type === 'found' ? 'items/found' : 'items/lost'
+                  }
+                />
               </>
             )}
           </View>

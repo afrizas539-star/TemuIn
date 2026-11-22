@@ -60,7 +60,7 @@ export default function StudentHomeScreen() {
     if (!isLoadingAuth) {
       if (!isAuthenticated || !user) {
         router.replace('/login');
-      } else if (role === 'admin') {
+      } else if (role === 'admin' || role === 'super_admin') {
         router.replace('/admin/dashboard');
       }
     }

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 
 import { apiService } from '@/services/api/apiService';
 import { campusRepository } from '@/services/repository/campusRepository';
-import { CampusItem, ClaimRequest, ItemStatus } from '@/types';
+import { CampusItem, CampusLocation, ClaimRequest, ItemStatus } from '@/types';
 
 interface CampusDataContextType {
   items: CampusItem[];
@@ -15,6 +15,7 @@ interface CampusDataContextType {
     category: string;
     description: string;
     location: string;
+    locationDetail?: CampusLocation;
     date: string;
     image?: string;
     additionalInfo?: string;
@@ -32,6 +33,7 @@ interface CampusDataContextType {
     category: string;
     description: string;
     location: string;
+    locationDetail?: CampusLocation;
     date: string;
     image: string;
     reporter: string;
@@ -102,6 +104,7 @@ export const CampusDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         category: itemData.category,
         description: itemData.description,
         location: itemData.location,
+        locationDetail: itemData.locationDetail,
         date: itemData.date,
         image: itemData.image,
         additionalInfo: itemData.additionalInfo,
@@ -115,6 +118,7 @@ export const CampusDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         category: itemData.category,
         description: itemData.description,
         location: itemData.location,
+        locationDetail: itemData.locationDetail,
         date: itemData.date,
         image: itemData.image,
         reporter: itemData.reporter,

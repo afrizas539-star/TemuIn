@@ -27,14 +27,22 @@ export default function AdminProfileScreen() {
     updateProfile,
     logout,
     isAdminAuthenticated,
+    role,
     isLoadingAuth,
   } = useAuth();
 
   useEffect(() => {
-    if (!isLoadingAuth && !isAdminAuthenticated) {
-      router.replace("/admin/login");
+    if (!isLoadingAuth) {
+      if (!isAdminAuthenticated) {
+        if (role === 'student') {
+          Alert.alert('Akses Ditolak', 'Mahasiswa tidak memiliki izin mengakses halaman profil petugas.');
+          router.replace('/home');
+        } else {
+          router.replace('/login');
+        }
+      }
     }
-  }, [isAdminAuthenticated, isLoadingAuth]);
+  }, [isAdminAuthenticated, role, isLoadingAuth]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(adminProfile.name);

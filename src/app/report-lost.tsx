@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -18,12 +19,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiErrorMessage } from '@/components/ApiErrorMessage';
 import { ImagePickerButton } from '@/components/ImagePickerButton';
+import { InteractiveCampusMapModal } from '@/components/InteractiveCampusMapModal';
+import { isPointInUMMCampus } from '@/constants/campusBoundary';
 import { CAMPUS_CATEGORIES } from '@/constants/initialData';
 import { AppRadius, Colors } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useCampusData } from '@/context/CampusDataContext';
 import { apiService } from '@/services/api/apiService';
-import { CampusItem } from '@/types';
+import { deletePhotoFromStorage, uploadItemPhotoToStorage } from '@/services/firebase/storageService';
+import { CampusItem, CampusLocation, ItemType } from '@/types';
 
 /**
  * Interface untuk input data laporan form mahasiswa (Rubrik: Object menggunakan Interface)
@@ -40,9 +44,11 @@ export interface ReportFormData {
  * Interface draft in-memory untuk mencegah data input hilang saat membuka layar kamera
  */
 interface ReportDraft {
+  reportType?: ItemType;
   title: string;
   category: string;
   location: string;
+  locationDetail?: CampusLocation;
   faculty: string;
   date: string;
   description: string;
@@ -52,9 +58,11 @@ interface ReportDraft {
 
 // Module-level memory draft agar nilai form tidak hilang saat berpindah ke layar sensor kamera
 let reportFormDraft: ReportDraft = {
+  reportType: 'lost',
   title: '',
   category: CAMPUS_CATEGORIES[1],
   location: '',
+  locationDetail: undefined,
   faculty: '',
   date: '',
   description: '',
@@ -64,9 +72,11 @@ let reportFormDraft: ReportDraft = {
 
 function clearReportDraft() {
   reportFormDraft = {
+    reportType: 'lost',
     title: '',
     category: CAMPUS_CATEGORIES[1],
     location: '',
+    locationDetail: undefined,
     faculty: '',
     date: '',
     description: '',
@@ -111,10 +121,11 @@ export default function StudentReportLostScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { reportLostItem } = useCampusData();
+  const { reportLostItem, addFoundItem } = useCampusData();
 
   // Parameter dari layar kamera (Task 03 - Integrasi antar layar)
   const params = useLocalSearchParams<{
+    type?: string;
     photoUri?: string;
     title?: string;
     category?: string;
@@ -124,6 +135,9 @@ export default function StudentReportLostScreen() {
     description?: string;
     additionalInfo?: string;
   }>();
+
+  // Mahasiswa hanya diperbolehkan melaporkan barang hilang
+  const reportType: ItemType = 'lost';
 
   // Form states diinisialisasi dari draft memory agar tidak ter-reset saat pengguna memotret dengan kamera
   const [title, setTitle] = useState(
@@ -137,6 +151,10 @@ export default function StudentReportLostScreen() {
   const [location, setLocation] = useState(
     () => reportFormDraft.location || (params.location ? String(params.location) : '')
   );
+  const [locationDetail, setLocationDetail] = useState<CampusLocation | undefined>(
+    () => reportFormDraft.locationDetail
+  );
+  const [showMapModal, setShowMapModal] = useState<boolean>(false);
   const [faculty, setFaculty] = useState(
     () => reportFormDraft.faculty || (params.faculty ? String(params.faculty) : '')
   );
@@ -167,9 +185,36 @@ export default function StudentReportLostScreen() {
       reportFormDraft.imageUri || (params.photoUri ? String(params.photoUri) : '')
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
   const [apiError, setApiError] = useState<unknown>(null);
 
-  // Sinkronisasi nilai input dengan draft in-memory
+  // Proses upload foto langsung ke Firebase Storage (folder items/lost)
+  const processAndUploadPhoto = async (localUri: string) => {
+    const previousImage = imageUri;
+    try {
+      setIsUploadingPhoto(true);
+      setUploadStatus('Mengunggah foto ke Firebase Storage...');
+      const downloadUrl = await uploadItemPhotoToStorage(localUri, 'items/lost');
+      updateImageUri(downloadUrl);
+      // Hapus foto lama jika diganti dan foto lama tersimpan di Firebase Storage
+      if (
+        previousImage &&
+        previousImage !== downloadUrl &&
+        (previousImage.includes('firebasestorage.googleapis.com') ||
+          previousImage.includes('firebasestorage.app'))
+      ) {
+        deletePhotoFromStorage(previousImage).catch(() => {});
+      }
+      Alert.alert('Sukses', 'Foto barang berhasil diunggah ke Firebase Storage.');
+    } catch (err: any) {
+      Alert.alert('Upload Gagal', err?.message || 'Gagal mengunggah foto ke Firebase Storage.');
+    } finally {
+      setIsUploadingPhoto(false);
+      setUploadStatus('');
+    }
+  };
+
   const updateTitle = (val: string) => {
     setTitle(val);
     reportFormDraft.title = val;
@@ -181,6 +226,11 @@ export default function StudentReportLostScreen() {
   const updateLocation = (val: string) => {
     setLocation(val);
     reportFormDraft.location = val;
+  };
+  const updateLocationDetail = (loc: CampusLocation) => {
+    setLocationDetail(loc);
+    reportFormDraft.locationDetail = loc;
+    updateLocation(loc.address);
   };
   const updateFaculty = (val: string) => {
     setFaculty(val);
@@ -231,7 +281,7 @@ export default function StudentReportLostScreen() {
     }
   }, [params]);
 
-  // Memotret langsung menggunakan kamera perangkat dengan fitur crop foto
+  // Memotret langsung menggunakan kamera perangkat dengan upload otomatis ke Firebase Storage
   const handleDirectCamera = async () => {
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -247,7 +297,7 @@ export default function StudentReportLostScreen() {
         quality: 0.8,
       });
       if (!result.canceled && result.assets && result.assets[0]?.uri) {
-        updateImageUri(result.assets[0].uri);
+        await processAndUploadPhoto(result.assets[0].uri);
       }
     } catch (e) {
       console.warn('Gagal memotret langsung:', e);
@@ -256,15 +306,44 @@ export default function StudentReportLostScreen() {
 
   const handleSubmit = () => {
     setApiError(null);
+
+    // Pastikan proses upload foto sudah selesai
+    if (isUploadingPhoto) {
+      Alert.alert(
+        'Upload Foto Sedang Berjalan',
+        'Mohon tunggu hingga proses unggah foto ke Firebase Storage selesai.'
+      );
+      return;
+    }
+
     setIsSubmitting(true);
 
     const studentName = user?.name || 'Mahasiswa Kampus';
     const studentId = user?.id || `mhs-${Date.now()}`;
 
-    // 03. CREATE & Rubrik: Menggunakan Custom Async Function dengan .then(), .catch(), .finally()
+    // Validasi area kampus UMM
+    if (locationDetail && !isPointInUMMCampus(locationDetail)) {
+      setIsSubmitting(false);
+      Alert.alert(
+        'Lokasi di Luar Kampus',
+        'Titik lokasi yang Anda pilih berada di luar lingkungan Kampus III UMM. Sesuai ketentuan, hanya laporan di area kampus yang diizinkan.'
+      );
+      return;
+    }
+
+    // Pastikan URL gambar bukan merupakan path lokal file://
+    let finalPhotoUrl = imageUri?.trim();
+    if (
+      finalPhotoUrl &&
+      (finalPhotoUrl.startsWith('file://') || finalPhotoUrl.startsWith('content://'))
+    ) {
+      finalPhotoUrl =
+        'https://images.unsplash.com/photo-1594980596870-8aa52a78d8cd?q=80&w=600&auto=format&fit=crop';
+    }
+
+    // 03. CREATE: Menggunakan Custom Async Function dengan .then(), .catch(), .finally()
     validateReportAsync({ title, category, location, date, description })
       .then((validForm: ReportFormData) => {
-        // Pre-built & Custom Async: Kirim HTTP POST via fetch() ke REST API Server
         return apiService
           .createItem({
             title: validForm.title.trim(),
@@ -273,32 +352,32 @@ export default function StudentReportLostScreen() {
             faculty: faculty.trim() || undefined,
             date: validForm.date.trim(),
             description: validForm.description.trim(),
-            image: imageUri || undefined,
+            image: finalPhotoUrl || undefined,
             reporter: `${studentName} (${user?.nim || 'Mahasiswa'})`,
             type: 'lost',
             status: 'DALAM PENCARIAN',
           })
           .then((serverItem) => ({ serverSuccess: true, item: serverItem }))
           .catch((apiErr) => {
-            // Graceful handling jika server REST API backend belum dinyalakan/terjangkau
             console.warn(
-              '[ReportLost] Server REST API backend belum terjangkau, menyimpan laporan secara lokal:',
+              '[ReportLost] Server REST API backend belum terjangkau, menyimpan laporan ke Firestore/lokal:',
               apiErr.message
             );
             return { serverSuccess: false, item: null, error: apiErr };
           });
       })
       .then((apiResult) => {
-        // Simpan ke state & repository lokal kampus agar data tersimpan dan langsung terlihat di Home
+        // Simpan ke Firestore via CampusDataContext (Hanya Laporan Kehilangan)
         return reportLostItem({
           title: title.trim(),
           category,
           location: location.trim(),
+          locationDetail,
           faculty: faculty.trim() || undefined,
           date: date.trim(),
           description: description.trim(),
           additionalInfo: additionalInfo.trim() || undefined,
-          image: imageUri || undefined,
+          image: finalPhotoUrl || undefined,
           userId: studentId,
           reporter: `${studentName} (${user?.nim || 'Mahasiswa'})`,
         }).then(() => apiResult);
@@ -378,13 +457,28 @@ export default function StudentReportLostScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Banner Identitas Formulir Kehilangan (Mahasiswa Resmi UMM) */}
+        <View style={styles.bannerInfoCard}>
+          <Ionicons name="search" size={20} color="#0266B3" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bannerInfoTitle}>Layanan Pelaporan Barang Hilang</Text>
+            <Text style={styles.bannerInfoSub}>
+              Publikasikan informasi barang Anda yang hilang di lingkungan Kampus III UMM. Petugas posko keamanan akan memverifikasi dan mencocokkannya dengan barang temuan.
+            </Text>
+          </View>
+        </View>
+
         {/* Verification Info Banner */}
         <View style={styles.noticeCard}>
           <Ionicons name="shield-outline" size={22} color="#D97706" />
           <View style={styles.noticeTextWrap}>
-            <Text style={styles.noticeTitle}>Alur Verifikasi Petugas</Text>
+            <Text style={styles.noticeTitle}>
+              {reportType === 'lost' ? 'Alur Verifikasi Laporan Hilang' : 'Laporan Penemuan Barang'}
+            </Text>
             <Text style={styles.noticeDesc}>
-              Setelah submit, laporan berstatus <Text style={styles.bold}>Menunggu Verifikasi</Text>. Admin akan memvalidasi agar tidak terjadi laporan palsu sebelum dipublikasikan.
+              {reportType === 'lost'
+                ? 'Setelah submit, laporan berstatus Menunggu Verifikasi oleh petugas kampus untuk mencegah laporan palsu.'
+                : 'Laporan barang temuan akan langsung dipublikasikan agar pemilik aslinya dapat mengajukan klaim.'}
             </Text>
           </View>
         </View>
@@ -401,11 +495,11 @@ export default function StudentReportLostScreen() {
           {/* Nama Barang */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>
-              Nama Barang Hilang <Text style={styles.req}>*</Text>
+              {reportType === 'lost' ? 'Nama Barang Hilang' : 'Nama Barang Ditemukan'} <Text style={styles.req}>*</Text>
             </Text>
             <TextInput
               style={styles.input}
-              placeholder="Contoh: Dompet Hitam Eiger, KTM Fisip, Botol Minum"
+              placeholder={reportType === 'lost' ? 'Contoh: Dompet Hitam Eiger, KTM Fisip' : 'Contoh: Kunci Motor Honda, Flashdisk Sandisk'}
               placeholderTextColor="#94A3B8"
               value={title}
               onChangeText={updateTitle}
@@ -441,18 +535,59 @@ export default function StudentReportLostScreen() {
             </ScrollView>
           </View>
 
-          {/* Lokasi Terakhir Terlihat */}
+          {/* BAGIAN 1: LOKASI KEHILANGAN / PENEMUAN */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>
-              Lokasi Terakhir Terlihat <Text style={styles.req}>*</Text>
-            </Text>
+            <View style={styles.locationHeaderRow}>
+              <Text style={styles.label}>
+                {reportType === 'lost' ? 'Lokasi Kehilangan Barang' : 'Lokasi Penemuan Barang'} <Text style={styles.req}>*</Text>
+              </Text>
+              {/* Tombol Pilih Lokasi pada Peta */}
+              <TouchableOpacity
+                style={styles.pickMapBtn}
+                onPress={() => setShowMapModal(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="map" size={14} color="#0266B3" />
+                <Text style={styles.pickMapBtnText}>Pilih Lokasi pada Peta</Text>
+              </TouchableOpacity>
+            </View>
+
             <TextInput
               style={styles.input}
-              placeholder="Contoh: GKB 3 Ruang 201, Kantin FEB, Parkir Motor"
+              placeholder="Contoh: GKB 3 Ruang 201, Kantin FEB, atau pilih dari peta..."
               placeholderTextColor="#94A3B8"
               value={location}
               onChangeText={updateLocation}
             />
+
+            {/* Informasi Koordinat dan Status Validasi Area Kampus */}
+            {locationDetail ? (
+              <View style={styles.locationMetaCard}>
+                <View style={styles.locationMetaHeader}>
+                  <Ionicons name="shield-checkmark" size={16} color="#15803D" />
+                  <Text style={styles.locationMetaStatus}>
+                    Status Validasi: Terverifikasi di Kampus III UMM
+                  </Text>
+                </View>
+                <Text style={styles.locationMetaCoord}>
+                  Koordinat: {locationDetail.latitude.toFixed(6)}, {locationDetail.longitude.toFixed(6)}
+                </Text>
+                <Text style={styles.locationMetaAddress} numberOfLines={2}>
+                  {locationDetail.address}
+                </Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.noLocationPrompt}
+                onPress={() => setShowMapModal(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="information-circle-outline" size={16} color="#0266B3" />
+                <Text style={styles.noLocationPromptText}>
+                  Ketuk <Text style={{ fontWeight: '700' }}>"Pilih Lokasi pada Peta"</Text> untuk memastikan titik berada di lingkungan Kampus III UMM.
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Fakultas / Area Gedung (Opsional) */}
@@ -515,32 +650,56 @@ export default function StudentReportLostScreen() {
 
           {/* Foto Barang Jika Ada */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Foto Barang (Jika Tersedia)</Text>
+            <Text style={styles.label}>Dokumentasi Foto Barang (Jika Tersedia)</Text>
+            <Text style={{ fontSize: 11, color: '#64748B', marginBottom: 8 }}>
+              Foto diunggah langsung ke Firebase Storage agar dapat dilihat oleh pengguna di HP lain.
+            </Text>
 
             {/* Tombol Ambil Foto Kamera */}
             <TouchableOpacity
               style={styles.takePhotoBtn}
               onPress={handleDirectCamera}
               activeOpacity={0.8}
+              disabled={isUploadingPhoto}
             >
               <Ionicons name="camera" size={18} color="#0266B3" />
-              <Text style={styles.takePhotoBtnText}>Ambil Foto</Text>
+              <Text style={styles.takePhotoBtnText}>Ambil Foto dengan Kamera</Text>
             </TouchableOpacity>
 
             <ImagePickerButton
               imageUri={imageUri}
-              onImageSelected={updateImageUri}
-              onImageRemoved={() => updateImageUri('')}
-              title="Unggah Foto dari Galeri"
+              onImageSelected={processAndUploadPhoto}
+              onImageRemoved={() => {
+                if (
+                  imageUri &&
+                  (imageUri.includes('firebasestorage.googleapis.com') ||
+                    imageUri.includes('firebasestorage.app'))
+                ) {
+                  deletePhotoFromStorage(imageUri).catch(() => {});
+                }
+                updateImageUri('');
+              }}
+              title="Pilih Foto dari Galeri"
               subtitle="Pilih foto barang jika Anda pernah memfotonya"
             />
+
+            {/* Loading Indicator saat proses upload ke Firebase Storage sedang berlangsung */}
+            {isUploadingPhoto && (
+              <View style={styles.uploadingInlineBox}>
+                <ActivityIndicator size="small" color="#0266B3" />
+                <Text style={styles.uploadingInlineText}>{uploadStatus}</Text>
+              </View>
+            )}
           </View>
 
           {/* Submit Button */}
           <TouchableOpacity
-            style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+            style={[
+              styles.submitButton,
+              (isSubmitting || isUploadingPhoto) && styles.submitButtonDisabled,
+            ]}
             onPress={handleSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isUploadingPhoto}
             activeOpacity={0.85}
           >
             <Ionicons name="paper-plane" size={18} color="#FFFFFF" />
@@ -550,11 +709,172 @@ export default function StudentReportLostScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Modal Peta Interaktif Kampus III UMM */}
+      <InteractiveCampusMapModal
+        visible={showMapModal}
+        onClose={() => setShowMapModal(false)}
+        initialCoordinate={
+          locationDetail
+            ? { latitude: locationDetail.latitude, longitude: locationDetail.longitude }
+            : undefined
+        }
+        onConfirmLocation={updateLocationDetail}
+      />
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  bannerInfoCard: {
+    flexDirection: 'row',
+    backgroundColor: '#EFF6FF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    gap: 12,
+    alignItems: 'center',
+  },
+  bannerInfoTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  bannerInfoSub: {
+    fontSize: 11,
+    color: '#475569',
+    lineHeight: 16,
+  },
+  uploadingInlineBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    backgroundColor: '#EFF6FF',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  uploadingInlineText: {
+    fontSize: 12,
+    color: '#0266B3',
+    fontWeight: '600',
+  },
+  typeToggleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  toggleCardLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 8,
+  },
+  typeBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  typeOptionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    gap: 6,
+  },
+  typeOptionBtnActiveLost: {
+    backgroundColor: '#DC2626',
+  },
+  typeOptionBtnActiveFound: {
+    backgroundColor: '#16A34A',
+  },
+  typeOptionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  typeOptionTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  locationHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  pickMapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    gap: 4,
+  },
+  pickMapBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0266B3',
+  },
+  locationMetaCard: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 6,
+    gap: 2,
+  },
+  locationMetaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  locationMetaStatus: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#15803D',
+  },
+  locationMetaCoord: {
+    fontSize: 11,
+    color: '#166534',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  locationMetaAddress: {
+    fontSize: 11,
+    color: '#475569',
+  },
+  noLocationPrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    padding: 8,
+    marginTop: 6,
+    gap: 6,
+  },
+  noLocationPromptText: {
+    fontSize: 11,
+    color: '#475569',
+    flex: 1,
+    lineHeight: 15,
+  },
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',

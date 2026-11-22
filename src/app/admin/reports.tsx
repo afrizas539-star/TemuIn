@@ -17,6 +17,7 @@ import {
 
 import { AdminBottomNav } from '@/components/AdminBottomNav';
 import { AdminHeader } from '@/components/AdminHeader';
+import { SafeImage } from '@/components/SafeImage';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useAuth } from '@/context/AuthContext';
 import { useCampusData } from '@/context/CampusDataContext';
@@ -34,14 +35,21 @@ import { CampusItem } from '@/types';
  */
 export default function AdminLostReportsScreen() {
   const router = useRouter();
-  const { isAdminAuthenticated, isLoadingAuth } = useAuth();
+  const { isAdminAuthenticated, role, isLoadingAuth } = useAuth();
   const { items, verifyLostReport, linkLostWithFound, updateItemStatus } = useCampusData();
 
   useEffect(() => {
-    if (!isLoadingAuth && !isAdminAuthenticated) {
-      router.replace('/admin/login');
+    if (!isLoadingAuth) {
+      if (!isAdminAuthenticated) {
+        if (role === 'student') {
+          Alert.alert('Akses Ditolak', 'Mahasiswa tidak memiliki izin mengakses panel verifikasi laporan.');
+          router.replace('/home');
+        } else {
+          router.replace('/login');
+        }
+      }
     }
-  }, [isAdminAuthenticated, isLoadingAuth]);
+  }, [isAdminAuthenticated, role, isLoadingAuth]);
 
   const [filterTab, setFilterTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [selectedReport, setSelectedReport] = useState<CampusItem | null>(null);
@@ -215,9 +223,12 @@ export default function AdminLostReportsScreen() {
               </View>
 
               <View style={styles.cardBody}>
-                {item.image && (
-                  <Image source={{ uri: item.image }} style={styles.itemThumb} />
-                )}
+                <SafeImage
+                  uri={item.image}
+                  fallbackType="lost"
+                  style={styles.itemThumb}
+                  resizeMode="cover"
+                />
                 <View style={styles.itemInfo}>
                   <Text style={styles.itemCategory}>{item.category}</Text>
                   <Text style={styles.itemTitle}>{item.title}</Text>

@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   orderBy,
@@ -94,67 +95,285 @@ export const DEFAULT_ADMIN_DATA: AdminProfile = {
 
 // ─── ADMINS & USERS ───────────────────────────────────────────────────────────
 
-/**
- * Cari akun admin di Firestore berdasarkan email.
- */
-export async function getAdminByEmailFromFirestore(email: string): Promise<AdminProfile | null> {
-  try {
-    const normalized = email.trim().toLowerCase();
-    const q = query(
-      collection(db, ADMINS_COLLECTION),
-      where('email', '==', normalized)
-    );
-    const snapshot = await getDocs(q);
-    if (!snapshot.empty) {
-      return snapshot.docs[0].data() as AdminProfile;
-    }
-
-    // Periksa juga di koleksi users jika disimpan di users dengan role admin
-    const qUsers = query(
-      collection(db, USERS_COLLECTION),
-      where('email', '==', normalized),
-      where('role', 'in', ['admin', 'Petugas Pengelola Lost & Found Kampus'])
-    );
-    const snapUsers = await getDocs(qUsers);
-    if (!snapUsers.empty) {
-      const uData = snapUsers.docs[0].data();
-      return {
-        name: uData.name || 'Petugas Kampus',
-        email: uData.email,
-        phone: uData.phone || '081234567890',
-        avatarUri: uData.photo || uData.avatarUri || '',
-        role: 'Petugas Pengelola Lost & Found Kampus',
-        officeLocation: uData.officeLocation || 'Posko Keamanan Pusat',
-      };
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Error fetching admin by email from Firestore:', error);
-    return null;
-  }
+export interface FirestoreAccountCheck {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  phone?: string;
+  nim?: string;
+  faculty?: string;
+  photo?: string;
+  password?: string;
+  status?: 'active' | 'inactive';
+  isActive?: boolean;
+  officeLocation?: string;
 }
 
 /**
- * Cari profil mahasiswa di Firestore (koleksi users).
+ * Cari profil mahasiswa di Firestore (koleksi users) berdasarkan UID Auth atau Email.
  */
-export async function getUserProfileFromFirestore(email: string): Promise<User | null> {
+export async function getUserProfileByUidOrEmail(params: {
+  uid?: string;
+  email?: string;
+}): Promise<FirestoreAccountCheck | null> {
   try {
-    const normalized = email.trim().toLowerCase();
-    const q = query(
-      collection(db, USERS_COLLECTION),
-      where('email', '==', normalized)
-    );
-    const snapshot = await getDocs(q);
-    if (!snapshot.empty) {
-      const docData = snapshot.docs[0];
-      return { id: docData.id, ...(docData.data() as Omit<User, 'id'>) };
+    const { uid, email } = params;
+
+    // 1. Cek langsung dengan doc(db, 'users', uid)
+    if (uid) {
+      const docRef = doc(db, USERS_COLLECTION, uid);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          name: data.name || 'Mahasiswa UMM',
+          email: data.email,
+          role: (data.role || 'student') as UserRole,
+          phone: data.phone || '',
+          nim: data.nim || '',
+          faculty: data.faculty || '',
+          photo: data.photo || data.avatarUri || '',
+          password: data.password,
+          status: data.status || (data.isActive === false ? 'inactive' : 'active'),
+          isActive: data.isActive !== false && data.status !== 'inactive',
+        };
+      }
+
+      // Cek field uid == uid
+      const qUid = query(collection(db, USERS_COLLECTION), where('uid', '==', uid));
+      const snapUid = await getDocs(qUid);
+      if (!snapUid.empty) {
+        const d = snapUid.docs[0];
+        const data = d.data();
+        return {
+          id: d.id,
+          name: data.name || 'Mahasiswa UMM',
+          email: data.email,
+          role: (data.role || 'student') as UserRole,
+          phone: data.phone || '',
+          nim: data.nim || '',
+          faculty: data.faculty || '',
+          photo: data.photo || data.avatarUri || '',
+          password: data.password,
+          status: data.status || (data.isActive === false ? 'inactive' : 'active'),
+          isActive: data.isActive !== false && data.status !== 'inactive',
+        };
+      }
     }
+
+    // 2. Cek berdasarkan normalized email
+    if (email) {
+      const normalized = email.trim().toLowerCase();
+      const qEmail = query(
+        collection(db, USERS_COLLECTION),
+        where('email', '==', normalized)
+      );
+      const snapEmail = await getDocs(qEmail);
+      if (!snapEmail.empty) {
+        const d = snapEmail.docs[0];
+        const data = d.data();
+        return {
+          id: d.id,
+          name: data.name || 'Mahasiswa UMM',
+          email: data.email,
+          role: (data.role || 'student') as UserRole,
+          phone: data.phone || '',
+          nim: data.nim || '',
+          faculty: data.faculty || '',
+          photo: data.photo || data.avatarUri || '',
+          password: data.password,
+          status: data.status || (data.isActive === false ? 'inactive' : 'active'),
+          isActive: data.isActive !== false && data.status !== 'inactive',
+        };
+      }
+    }
+
     return null;
   } catch (error) {
     console.error('Error fetching user profile from Firestore:', error);
     return null;
   }
+}
+
+/**
+ * Cari akun admin/petugas di Firestore (koleksi admins atau users dengan role admin/super_admin).
+ */
+export async function getAdminProfileByUidOrEmail(params: {
+  uid?: string;
+  email?: string;
+}): Promise<FirestoreAccountCheck | null> {
+  try {
+    const { uid, email } = params;
+
+    // 1. Cek di koleksi admins dengan doc(db, 'admins', uid)
+    if (uid) {
+      const docRef = doc(db, ADMINS_COLLECTION, uid);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const roleStr = String(data.role || '').toLowerCase();
+        const resolvedRole: UserRole = roleStr.includes('super') ? 'super_admin' : 'admin';
+        return {
+          id: docSnap.id,
+          name: data.name || 'Petugas Kampus',
+          email: data.email,
+          role: resolvedRole,
+          phone: data.phone || '',
+          photo: data.avatarUri || data.photo || '',
+          password: data.password,
+          status: data.status || (data.isActive === false ? 'inactive' : 'active'),
+          isActive: data.isActive !== false && data.status !== 'inactive',
+          officeLocation: data.officeLocation || 'Posko Keamanan Pusat',
+        };
+      }
+
+      // Cek field uid di admins
+      const qUid = query(collection(db, ADMINS_COLLECTION), where('uid', '==', uid));
+      const snapUid = await getDocs(qUid);
+      if (!snapUid.empty) {
+        const d = snapUid.docs[0];
+        const data = d.data();
+        const roleStr = String(data.role || '').toLowerCase();
+        const resolvedRole: UserRole = roleStr.includes('super') ? 'super_admin' : 'admin';
+        return {
+          id: d.id,
+          name: data.name || 'Petugas Kampus',
+          email: data.email,
+          role: resolvedRole,
+          phone: data.phone || '',
+          photo: data.avatarUri || data.photo || '',
+          password: data.password,
+          status: data.status || (data.isActive === false ? 'inactive' : 'active'),
+          isActive: data.isActive !== false && data.status !== 'inactive',
+          officeLocation: data.officeLocation || 'Posko Keamanan Pusat',
+        };
+      }
+    }
+
+    // 2. Cek di koleksi admins berdasarkan email
+    if (email) {
+      const normalized = email.trim().toLowerCase();
+      const qEmail = query(
+        collection(db, ADMINS_COLLECTION),
+        where('email', '==', normalized)
+      );
+      const snapEmail = await getDocs(qEmail);
+      if (!snapEmail.empty) {
+        const d = snapEmail.docs[0];
+        const data = d.data();
+        const roleStr = String(data.role || '').toLowerCase();
+        const resolvedRole: UserRole = roleStr.includes('super') ? 'super_admin' : 'admin';
+        return {
+          id: d.id,
+          name: data.name || 'Petugas Kampus',
+          email: data.email,
+          role: resolvedRole,
+          phone: data.phone || '',
+          photo: data.avatarUri || data.photo || '',
+          password: data.password,
+          status: data.status || (data.isActive === false ? 'inactive' : 'active'),
+          isActive: data.isActive !== false && data.status !== 'inactive',
+          officeLocation: data.officeLocation || 'Posko Keamanan Pusat',
+        };
+      }
+
+      // Cek juga di koleksi users jika disimpan dengan role 'admin' atau 'super_admin'
+      const qUserAdmin = query(
+        collection(db, USERS_COLLECTION),
+        where('email', '==', normalized),
+        where('role', 'in', ['admin', 'super_admin', 'Petugas Pengelola Lost & Found Kampus'])
+      );
+      const snapUserAdmin = await getDocs(qUserAdmin);
+      if (!snapUserAdmin.empty) {
+        const d = snapUserAdmin.docs[0];
+        const data = d.data();
+        const roleStr = String(data.role || '').toLowerCase();
+        const resolvedRole: UserRole = roleStr.includes('super') ? 'super_admin' : 'admin';
+        return {
+          id: d.id,
+          name: data.name || 'Petugas Kampus',
+          email: data.email,
+          role: resolvedRole,
+          phone: data.phone || '',
+          photo: data.photo || data.avatarUri || '',
+          password: data.password,
+          status: data.status || (data.isActive === false ? 'inactive' : 'active'),
+          isActive: data.isActive !== false && data.status !== 'inactive',
+          officeLocation: data.officeLocation || 'Posko Keamanan Pusat',
+        };
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching admin profile from Firestore:', error);
+    return null;
+  }
+}
+
+/**
+ * Cari profil akun di Firestore (baik koleksi admins maupun users).
+ * Digunakan oleh Single Unified Login untuk mendeteksi profil dan role resmi secara otomatis.
+ */
+export async function getAnyUserProfileByUidOrEmail(params: {
+  uid?: string;
+  email?: string;
+}): Promise<FirestoreAccountCheck | null> {
+  try {
+    // 1. Cek terlebih dahulu di koleksi admins
+    const adminProfile = await getAdminProfileByUidOrEmail(params);
+    if (adminProfile) return adminProfile;
+
+    // 2. Cek di koleksi users (mahasiswa)
+    const studentProfile = await getUserProfileByUidOrEmail(params);
+    if (studentProfile) return studentProfile;
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching profile from Firestore in getAnyUserProfileByUidOrEmail:', error);
+    return null;
+  }
+}
+
+/**
+ * Cari akun admin di Firestore berdasarkan email (Backwards-compatibility).
+ */
+export async function getAdminByEmailFromFirestore(email: string): Promise<AdminProfile | null> {
+  const profile = await getAdminProfileByUidOrEmail({ email });
+  if (!profile) return null;
+  return {
+    name: profile.name,
+    email: profile.email,
+    phone: profile.phone || '',
+    password: profile.password,
+    avatarUri: profile.photo || '',
+    role: profile.role === 'super_admin' ? 'Super Admin' : 'Petugas Pengelola Lost & Found Kampus',
+    officeLocation: profile.officeLocation || 'Posko Keamanan Pusat',
+    status: profile.status,
+    isActive: profile.isActive,
+  };
+}
+
+/**
+ * Cari profil mahasiswa di Firestore (koleksi users) (Backwards-compatibility).
+ */
+export async function getUserProfileFromFirestore(email: string): Promise<User | null> {
+  const profile = await getUserProfileByUidOrEmail({ email });
+  if (!profile) return null;
+  return {
+    id: profile.id,
+    name: profile.name,
+    email: profile.email,
+    role: profile.role,
+    phone: profile.phone || '',
+    nim: profile.nim || '',
+    faculty: profile.faculty || '',
+    photo: profile.photo || '',
+    status: profile.status,
+    isActive: profile.isActive,
+  };
 }
 
 /**

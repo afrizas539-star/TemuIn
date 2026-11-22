@@ -2,13 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
-  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 
+import { SafeImage } from './SafeImage';
 import { StatusBadge } from './StatusBadge';
 
 import { AppRadius, Colors, Typography } from '@/constants/theme';
@@ -43,7 +43,12 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onPress, isAdmin = fal
       accessibilityLabel={`Buka detail barang: ${item.title}`}
     >
       <View style={styles.imageWrapper}>
-        <Image source={{ uri: item.image }} style={styles.image} resizeMode="cover" />
+        <SafeImage
+          uri={item.image}
+          fallbackType={item.type}
+          style={styles.image}
+          resizeMode="cover"
+        />
         <View
           style={[
             styles.typePill,

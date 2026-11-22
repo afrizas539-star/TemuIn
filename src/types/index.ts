@@ -1,4 +1,11 @@
-export type UserRole = 'student' | 'admin';
+export type UserRole = 'student' | 'admin' | 'super_admin';
+
+export interface CampusLocation {
+  latitude: number;
+  longitude: number;
+  address: string;
+  campus?: string;
+}
 
 export interface User {
   id: string;
@@ -9,6 +16,8 @@ export interface User {
   photo?: string;
   nim?: string;
   faculty?: string;
+  status?: 'active' | 'inactive';
+  isActive?: boolean;
 }
 
 export type ItemType = 'lost' | 'found';
@@ -63,6 +72,7 @@ export interface CampusItem {
   statusColor: string;
   date: string;
   location: string;
+  locationDetail?: CampusLocation;
   faculty: string;
   description: string;
   reward?: string | null;
@@ -86,6 +96,7 @@ export interface LostItem {
   category: string;
   description: string;
   location: string;
+  locationDetail?: CampusLocation;
   lostDate: string;
   photo?: string;
   status: LostItemStatus;
@@ -102,6 +113,7 @@ export interface FoundItem {
   category: string;
   description: string;
   location: string;
+  locationDetail?: CampusLocation;
   foundDate: string;
   photo?: string;
   status: FoundItemStatus;
@@ -141,4 +153,6 @@ export interface AdminProfile {
   avatarUri?: string;
   role: string;
   officeLocation: string;
+  status?: 'active' | 'inactive';
+  isActive?: boolean;
 }

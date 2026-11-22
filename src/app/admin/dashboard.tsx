@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,15 +22,22 @@ import { useCampusData } from "@/context/CampusDataContext";
 export default function AdminDashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { isAdminAuthenticated, adminProfile, isLoadingAuth } = useAuth();
+  const { isAdminAuthenticated, role, adminProfile, isLoadingAuth } = useAuth();
   const { items, claims } = useCampusData();
 
   // Route protection
   useEffect(() => {
-    if (!isLoadingAuth && !isAdminAuthenticated) {
-      router.replace("/admin/login");
+    if (!isLoadingAuth) {
+      if (!isAdminAuthenticated) {
+        if (role === 'student') {
+          Alert.alert('Akses Ditolak', 'Mahasiswa tidak memiliki izin mengakses panel pengelola kampus.');
+          router.replace('/home');
+        } else {
+          router.replace('/login');
+        }
+      }
     }
-  }, [isAdminAuthenticated, isLoadingAuth]);
+  }, [isAdminAuthenticated, role, isLoadingAuth]);
 
   // Statistics calculation
   const totalLost = items.filter((i) => i.type === "lost").length;

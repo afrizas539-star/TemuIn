@@ -15,31 +15,42 @@ import {
 } from 'react-native';
 
 import { AdminBottomNav } from '@/components/AdminBottomNav';
+import { AdminCameraPicker } from '@/components/AdminCameraPicker';
 import { AdminHeader } from '@/components/AdminHeader';
 import { ApiErrorMessage } from '@/components/ApiErrorMessage';
-import { ImagePickerButton } from '@/components/ImagePickerButton';
+import { InteractiveCampusMapModal } from '@/components/InteractiveCampusMapModal';
 import { CAMPUS_CATEGORIES } from '@/constants/initialData';
 import { useAuth } from '@/context/AuthContext';
 import { useCampusData } from '@/context/CampusDataContext';
-import { ItemType } from '@/types';
+import { deletePhotoFromStorage } from '@/services/firebase/storageService';
+import { CampusLocation, ItemType } from '@/types';
 
 export default function AdminCreateReportScreen() {
   const router = useRouter();
-  const { isAdminAuthenticated, adminProfile, isLoadingAuth } = useAuth();
+  const { isAdminAuthenticated, role, adminProfile, isLoadingAuth } = useAuth();
   const { addItem } = useCampusData();
 
   // Route protection
   useEffect(() => {
-    if (!isLoadingAuth && !isAdminAuthenticated) {
-      router.replace('/admin/login');
+    if (!isLoadingAuth) {
+      if (!isAdminAuthenticated) {
+        if (role === 'student') {
+          Alert.alert('Akses Ditolak', 'Mahasiswa tidak memiliki izin menambahkan barang temuan.');
+          router.replace('/home');
+        } else {
+          router.replace('/login');
+        }
+      }
     }
-  }, [isAdminAuthenticated, isLoadingAuth]);
+  }, [isAdminAuthenticated, role, isLoadingAuth]);
 
   // Form states
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState(CAMPUS_CATEGORIES[1]); // default 'KTM & Kartu'
   const [type, setType] = useState<ItemType>('found'); // default 'found'
   const [location, setLocation] = useState('');
+  const [locationDetail, setLocationDetail] = useState<CampusLocation | undefined>(undefined);
+  const [showMapModal, setShowMapModal] = useState(false);
   const [faculty, setFaculty] = useState('');
   const [date, setDate] = useState('Hari ini • ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB');
   const [description, setDescription] = useState('');
@@ -81,6 +92,7 @@ export default function AdminCreateReportScreen() {
         statusColor: '#15803D',
         date: date.trim() || 'Hari ini',
         location: location.trim(),
+        locationDetail,
         faculty,
         description: description.trim(),
         reporter: reporter.trim() || adminProfile.name,
@@ -239,13 +251,32 @@ export default function AdminCreateReportScreen() {
             <Text style={styles.label}>
               Lokasi Ditemukan / Hilang <Text style={styles.req}>*</Text>
             </Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Contoh: Ruang 304 Gedung Kuliah Bersama (GKB) 3"
-              placeholderTextColor="#94A3B8"
-              value={location}
-              onChangeText={setLocation}
-            />
+            <View style={styles.locationInputRow}>
+              <TextInput
+                style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                placeholder="Contoh: Ruang 304 Gedung Kuliah Bersama (GKB) 3"
+                placeholderTextColor="#94A3B8"
+                value={location}
+                onChangeText={setLocation}
+              />
+              <TouchableOpacity
+                style={styles.mapPickerBtn}
+                onPress={() => setShowMapModal(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="map-outline" size={16} color="#0266B3" />
+                <Text style={styles.mapPickerBtnText}>Peta</Text>
+              </TouchableOpacity>
+            </View>
+
+            {locationDetail && (
+              <View style={styles.locationDetailBadge}>
+                <Ionicons name="checkmark-circle" size={14} color="#15803D" />
+                <Text style={styles.locationDetailText}>
+                  Titik Kampus III UMM: {locationDetail.latitude.toFixed(6)}, {locationDetail.longitude.toFixed(6)}
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Lingkup Fakultas / Unit (Opsional) */}
@@ -303,19 +334,29 @@ export default function AdminCreateReportScreen() {
             />
           </View>
 
-          {/* UPLOAD FOTO BARANG (BAGIAN 4 REQUIREMENT) */}
+          {/* FITUR KAMERA PETUGAS / ADMIN (BAGIAN 2 REQUIREMENT) */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Foto Barang Bukti</Text>
+            <Text style={styles.label}>Dokumentasi Foto Barang Temuan</Text>
             <Text style={styles.fieldHint}>
-              Pilih foto barang dari galeri untuk dipublikasikan pada katalog dan detail barang mahasiswa.
+              Ambil foto fisik barang langsung dengan kamera HP petugas atau pilih dari galeri untuk diunggah ke Firebase Storage.
             </Text>
 
-            <ImagePickerButton
+            <AdminCameraPicker
               imageUri={imageUri}
-              onImageSelected={(uri) => setImageUri(uri)}
-              onImageRemoved={() => setImageUri('')}
-              title="Pilih Foto Barang Temuan"
-              subtitle="Upload foto jelas dari galeri smartphone Anda"
+              onImageUploaded={(downloadUrl) => setImageUri(downloadUrl)}
+              onImageRemoved={() => {
+                if (
+                  imageUri &&
+                  (imageUri.includes('firebasestorage.googleapis.com') ||
+                    imageUri.includes('firebasestorage.app'))
+                ) {
+                  deletePhotoFromStorage(imageUri).catch(() => {});
+                }
+                setImageUri('');
+              }}
+              title="Kamera & Foto Barang"
+              subtitle="Foto kondisi barang sebelum disimpan di sistem"
+              storageFolder={type === 'found' ? 'items/found' : 'items/lost'}
             />
           </View>
         </View>
@@ -334,12 +375,65 @@ export default function AdminCreateReportScreen() {
         </TouchableOpacity>
       </ScrollView>
 
+      {/* Interactive Map Modal */}
+      <InteractiveCampusMapModal
+        visible={showMapModal}
+        onClose={() => setShowMapModal(false)}
+        initialCoordinate={
+          locationDetail
+            ? { latitude: locationDetail.latitude, longitude: locationDetail.longitude }
+            : undefined
+        }
+        onConfirmLocation={(loc) => {
+          setLocationDetail(loc);
+          setLocation(loc.address);
+        }}
+      />
+
       <AdminBottomNav activeTab="create" />
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  locationInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  mapPickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 4,
+  },
+  mapPickerBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0266B3',
+  },
+  locationDetailBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginTop: 6,
+    gap: 6,
+  },
+  locationDetailText: {
+    fontSize: 11,
+    color: '#15803D',
+    fontWeight: '600',
+  },
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
