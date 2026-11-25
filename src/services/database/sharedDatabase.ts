@@ -31,8 +31,8 @@ class SharedDatabaseService {
   private listeners: Set<DatabaseChangeListener> = new Set();
   private pollInterval: any = null;
   private cachedState: DatabaseState = {
-    items: [], // Data barang diambil dari Firestore, bukan initialData
-    claims: [], // Data klaim diambil dari Firestore, bukan initialData
+    items: [], // Data barang disinkronkan dari Supabase
+    claims: [], // Data klaim disinkronkan dari Supabase
     lastSyncedAt: new Date().toISOString(),
   };
 

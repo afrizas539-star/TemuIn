@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -22,23 +22,15 @@ import { useAuth } from '@/context/AuthContext';
 export default function AdminLoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { loginAsAdmin, isAdminAuthenticated, adminProfile, isLoadingAuth } = useAuth();
+  const { loginAsAdmin, adminProfile, isLoadingAuth, isSubmitting: authSubmitting } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [apiError, setApiError] = useState<unknown>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localSubmitting, setLocalSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (isAdminAuthenticated) {
-      router.replace('/admin/dashboard');
-    } else {
-      // Sesuai Persyaratan 8: Aplikasi hanya memiliki SATU halaman login
-      // Seluruh login Mahasiswa dan Petugas diarahkan ke /login
-      router.replace('/login');
-    }
-  }, [isAdminAuthenticated]);
+  const isSubmitting = localSubmitting || authSubmitting;
 
   const handleLogin = async () => {
     setApiError(null);
@@ -53,7 +45,7 @@ export default function AdminLoginScreen() {
     }
 
     try {
-      setIsSubmitting(true);
+      setLocalSubmitting(true);
       const res = await loginAsAdmin(trimmed, password);
       if (res.success) {
         router.replace('/admin/dashboard');
@@ -63,7 +55,7 @@ export default function AdminLoginScreen() {
     } catch (e) {
       setApiError(e);
     } finally {
-      setIsSubmitting(false);
+      setLocalSubmitting(false);
     }
   };
 

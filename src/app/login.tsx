@@ -32,10 +32,9 @@ export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const {
-    isAuthenticated,
-    role,
     login,
     isLoadingAuth,
+    isSubmitting: authSubmitting,
   } = useAuth();
 
   // Form states
@@ -43,22 +42,13 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [apiError, setApiError] = useState<unknown>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localSubmitting, setLocalSubmitting] = useState(false);
 
-  // Jika sudah login, langsung arahkan ke dashboard yang sesuai
-  useEffect(() => {
-    if (!isLoadingAuth && isAuthenticated && role) {
-      if (role === 'admin' || role === 'super_admin') {
-        router.replace('/admin/dashboard');
-      } else {
-        router.replace('/home');
-      }
-    }
-  }, [isAuthenticated, role, isLoadingAuth]);
+  const isSubmitting = localSubmitting || authSubmitting;
 
   /**
    * Fungsi Login Gabungan: Mahasiswa dan Petugas/Admin menggunakan halaman dan fungsi yang sama.
-   * Role ditentukan otomatis dari profil Firestore tepercaya berdasarkan UID autentikasi.
+   * Role ditentukan otomatis dari profil Supabase tepercaya berdasarkan UID autentikasi.
    */
   const handleLogin = async () => {
     setApiError(null);
@@ -75,11 +65,11 @@ export default function LoginScreen() {
     }
 
     try {
-      setIsSubmitting(true);
+      setLocalSubmitting(true);
 
       const res = await login(trimmedId, password);
       if (res.success) {
-        // Pengarahan otomatis berdasarkan role Firestore
+        // Pengarahan otomatis berdasarkan role Supabase
         if (res.role === 'admin' || res.role === 'super_admin') {
           router.replace('/admin/dashboard');
         } else {
@@ -91,7 +81,7 @@ export default function LoginScreen() {
     } catch (err) {
       setApiError(err);
     } finally {
-      setIsSubmitting(false);
+      setLocalSubmitting(false);
     }
   };
 
@@ -225,6 +215,16 @@ export default function LoginScreen() {
               </>
             )}
           </TouchableOpacity>
+
+          {/* Sign Up Link */}
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 16 }}>
+            <Text style={{ fontSize: 13, color: '#64748B' }}>Belum punya akun mahasiswa? </Text>
+            <TouchableOpacity onPress={() => router.push('/register' as any)} disabled={isSubmitting}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#0266B3' }}>
+                Daftar Akun
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Security Notice */}

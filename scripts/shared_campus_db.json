@@ -1,6 +1,21 @@
 {
   "items": [
     {
+      "id": "item-1795570736064",
+      "title": "Dompet",
+      "category": "KTM & Kartu",
+      "type": "lost",
+      "status": "DALAM PENCARIAN",
+      "description": "Hitam",
+      "location": "Gedung Rektorat & Kantor Pusat, Kampus III UMM (Jl. Raya Tlogomas No. 246, Malang)",
+      "date": "Hari ini • 08.37 WIB",
+      "image": "https://tctnywzydimhnhjjaboe.supabase.co/storage/v1/object/public/item-photos/items/lost/1795570721546_off3zv7.jpg",
+      "reporter": "Rusdi (rusdi123)",
+      "userId": "mhs-umum",
+      "faculty": "Masjid",
+      "createdAt": "2026-11-25T01:38:56.064Z"
+    },
+    {
       "id": "1",
       "title": "KTM & Lanyard a.n Nabila Putri",
       "category": "KTM & Kartu",
@@ -104,5 +119,21 @@
       "status": "Aktif"
     }
   ],
-  "updatedAt": "2026-10-14T09:56:25.164Z"
+  "updatedAt": "2026-10-14T09:56:25.164Z",
+  "news": [
+    {
+      "id": "news-1",
+      "title": "SOP Terbaru Pengambilan Barang Temuan di Pos Satpam",
+      "date": "14 Okt 2026",
+      "summary": "Mahasiswa wajib membawa KTM fisik asli saat verifikasi dan serah terima barang temuan.",
+      "category": "Pengumuman"
+    },
+    {
+      "id": "news-2",
+      "title": "Peningkatan Pengawasan Area Parkir Gedung Kuliah Bersama",
+      "date": "12 Okt 2026",
+      "summary": "Petugas keamanan kampus menambah jadwal patroli rutin guna mencegah kehilangan helm dan barang bawaan.",
+      "category": "Keamanan"
+    }
+  ]
 }

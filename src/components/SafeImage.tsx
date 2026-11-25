@@ -82,7 +82,7 @@ export const SafeImage: React.FC<SafeImageProps> = ({
         accessibilityLabel={accessibilityLabel}
       />
 
-      {/* Loading Indicator saat gambar sedang diunduh dari internet / Firebase Storage */}
+      {/* Loading Indicator saat gambar sedang diunduh dari internet / Supabase Storage */}
       {isLoading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="small" color="#0266B3" />

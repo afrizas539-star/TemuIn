@@ -1,16 +1,16 @@
 import { INITIAL_CAMPUS_ITEMS, STATUS_COLORS } from '@/constants/initialData';
+import { supabase } from '@/lib/supabase';
 import {
-  addClaimToFirestore,
-  addItemToFirestore,
-  deleteItemFromFirestore,
-  getAllClaimsFromFirestore,
-  getAllItemsFromFirestore,
+  addClaimToDatabase,
+  addItemToDatabase,
+  deleteItemFromDatabase,
+  getAllClaimsFromDatabase,
+  getAllItemsFromDatabase,
   subscribeToClaims,
   subscribeToItems,
-  updateClaimInFirestore,
-  updateItemInFirestore,
-} from '@/services/firebase/firestoreService';
-import { secureStorage } from '@/services/storage/secureStorage';
+  updateClaimInDatabase,
+  updateItemInDatabase,
+} from '@/services/supabase/dataService';
 import {
   CampusItem,
   CampusLocation,
@@ -20,20 +20,63 @@ import {
   ItemStatus,
   LostItemStatus,
   User,
+  UserRole,
   VerificationStatus,
 } from '@/types';
 
 /**
- * CampusRepository — Firebase Firestore Edition
+ * CampusRepository â€” Supabase Edition
  *
- * Semua operasi data barang (items) dan klaim (claims) kini diarahkan
- * langsung ke Firebase Firestore. sharedDatabase/backend HTTP tidak lagi digunakan.
+ * Semua operasi data barang (items) dan klaim (claims) diarahkan
+ * ke Supabase Database dengan subscription realtime.
  */
+
+// Helper terpusat untuk mendapatkan status auth dan role aktif dari Supabase
+async function getActiveAuth(): Promise<{ user: User | null; role: UserRole | null; isAdmin: boolean }> {
+  try {
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) {
+      return { user: null, role: null, isAdmin: false };
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', authUser.id)
+      .single();
+
+    if (!profile) {
+      return { user: null, role: null, isAdmin: false };
+    }
+
+    const role = profile.role as UserRole;
+    const user: User = {
+      id: profile.id,
+      name: profile.name,
+      email: profile.email,
+      role,
+      phone: profile.phone || '',
+      nim: profile.nim || undefined,
+      faculty: profile.faculty || undefined,
+      photo: profile.photo || undefined,
+      isActive: profile.is_active,
+    };
+
+    return {
+      user,
+      role,
+      isAdmin: role === 'admin' || role === 'super_admin',
+    };
+  } catch (err) {
+    console.warn('[CampusRepository] Gagal mengambil active auth:', err);
+    return { user: null, role: null, isAdmin: false };
+  }
+}
 
 // State lokal (cache) yang diperbarui via realtime listener
 let _items: CampusItem[] = [...INITIAL_CAMPUS_ITEMS];
 let _claims: ClaimRequest[] = [];
-let _listeners: Array<(state: { items: CampusItem[]; claims: ClaimRequest[] }) => void> = [];
+let _listeners: ((state: { items: CampusItem[]; claims: ClaimRequest[] }) => void)[] = [];
 
 function _notifyListeners() {
   const state = { items: _items, claims: _claims };
@@ -46,7 +89,7 @@ function _notifyListeners() {
   });
 }
 
-// Inisialisasi realtime listener ke Firestore
+// Inisialisasi realtime listener ke Supabase
 let _unsubItems: (() => void) | null = null;
 let _unsubClaims: (() => void) | null = null;
 
@@ -69,12 +112,12 @@ class CampusRepository {
     _ensureListeners();
   }
 
-  // ─── READ ──────────────────────────────────────────────────────────────────
+  // â”€â”€â”€ READ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async getAllItems(): Promise<CampusItem[]> {
     if (_items.length > 0) return _items;
     try {
-      const fsItems = await getAllItemsFromFirestore();
+      const fsItems = await getAllItemsFromDatabase();
       if (fsItems && fsItems.length > 0) {
         _items = fsItems;
       }
@@ -102,13 +145,13 @@ class CampusRepository {
     return all.filter((item) => item.type === 'lost' && item.userId === userId);
   }
 
-  // ─── BARANG HILANG (LAPORAN MAHASISWA) ────────────────────────────────────
+  // â”€â”€â”€ BARANG HILANG (LAPORAN MAHASISWA) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
    * FITUR MAHASISWA: Lapor Barang Hilang (Prioritas 6)
    * Status awal: 'Menunggu Verifikasi'
    * Status barang: 'DALAM PENCARIAN'
-   * Disimpan ke Firestore koleksi `items`.
+   * Disimpan ke Supabase koleksi `items`.
    */
   async reportLostItem(data: {
     title: string;
@@ -123,7 +166,7 @@ class CampusRepository {
     reporter: string;
     faculty?: string;
   }): Promise<CampusItem> {
-    // Validasi gambar: jangan pernah menyimpan URI lokal file:// ke Firestore
+    // Validasi gambar: jangan pernah menyimpan URI lokal file:// ke Supabase
     let finalImage = data.image?.trim();
     if (!finalImage || finalImage.startsWith('file://') || finalImage.startsWith('content://')) {
       finalImage = 'https://images.unsplash.com/photo-1594980596870-8aa52a78d8cd?q=80&w=600&auto=format&fit=crop';
@@ -150,12 +193,12 @@ class CampusRepository {
       createdAt: new Date().toISOString(),
     };
 
-    // addDoc ke Firestore — ID digenerate otomatis
-    const newItem = await addItemToFirestore(itemData);
+    // addDoc ke Supabase â€” ID digenerate otomatis
+    const newItem = await addItemToDatabase(itemData);
     return newItem;
   }
 
-  // ─── VERIFIKASI LAPORAN (ADMIN) ───────────────────────────────────────────
+  // â”€â”€â”€ VERIFIKASI LAPORAN (ADMIN) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
    * VERIFIKASI LAPORAN KEHILANGAN OLEH ADMIN (Prioritas 7)
@@ -187,7 +230,7 @@ class CampusRepository {
         : `Catatan Admin: ${adminNotes}`;
     }
 
-    await updateItemInFirestore(itemId, updatedFields);
+    await updateItemInDatabase(itemId, updatedFields);
     return {
       success: true,
       message: approved
@@ -196,12 +239,12 @@ class CampusRepository {
     };
   }
 
-  // ─── BARANG TEMUAN (INPUT ADMIN/PETUGAS) ─────────────────────────────────
+  // â”€â”€â”€ BARANG TEMUAN (INPUT ADMIN/PETUGAS) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
    * INPUT BARANG TEMUAN OLEH ADMIN/PETUGAS (Prioritas 8 & 14)
    * Status: 'TERSEDIA'
-   * Disimpan ke Firestore koleksi `items`.
+   * Disimpan ke Supabase koleksi `items`.
    */
   async addFoundItem(data: {
     title: string;
@@ -215,8 +258,8 @@ class CampusRepository {
     faculty?: string;
   }): Promise<CampusItem> {
     // Validasi wewenang: Mahasiswa dilarang menambahkan barang temuan
-    const activeRole = await secureStorage.getItem('auth_active_role');
-    if (activeRole !== 'admin' && activeRole !== 'super_admin') {
+    const authState = await getActiveAuth();
+    if (!authState.isAdmin) {
       throw new Error('Akses ditolak: Hanya Petugas/Admin resmi yang berwenang menambahkan data barang temuan.');
     }
 
@@ -243,12 +286,12 @@ class CampusRepository {
       createdAt: new Date().toISOString(),
     };
 
-    // addDoc ke Firestore — ID digenerate otomatis
-    const newItem = await addItemToFirestore(itemData);
+    // addDoc ke Supabase â€” ID digenerate otomatis
+    const newItem = await addItemToDatabase(itemData);
     return newItem;
   }
 
-  // ─── HUBUNGKAN BARANG ─────────────────────────────────────────────────────
+  // â”€â”€â”€ HUBUNGKAN BARANG â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
    * HUBUNGKAN BARANG HILANG DENGAN BARANG TEMUAN (Prioritas 9 & 11)
@@ -264,14 +307,14 @@ class CampusRepository {
       return { success: false, message: 'Data barang hilang atau temuan tidak ditemukan.' };
     }
 
-    await updateItemInFirestore(lostItemId, {
+    await updateItemInDatabase(lostItemId, {
       status: 'BARANG DITEMUKAN' as ItemStatus,
       lostStatus: 'BARANG DITEMUKAN' as LostItemStatus,
       statusColor: STATUS_COLORS['BARANG DITEMUKAN'].text,
       foundItemId: foundItemId,
     });
 
-    await updateItemInFirestore(foundItemId, {
+    await updateItemInDatabase(foundItemId, {
       linkedLostItemId: lostItemId,
     });
 
@@ -281,12 +324,12 @@ class CampusRepository {
     };
   }
 
-  // ─── UPDATE STATUS ────────────────────────────────────────────────────────
+  // â”€â”€â”€ UPDATE STATUS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async updateItemStatus(itemId: string, newStatus: ItemStatus): Promise<void> {
     const item = _items.find((i) => i.id === itemId);
-    const activeRole = await secureStorage.getItem('auth_active_role');
-    const isAdmin = activeRole === 'admin' || activeRole === 'super_admin';
+    const authState = await getActiveAuth();
+    const isAdmin = authState.isAdmin;
 
     // Mahasiswa TIDAK BOLEH mengubah status barang temuan
     if (item?.type === 'found' && !isAdmin) {
@@ -320,36 +363,36 @@ class CampusRepository {
       }
     }
 
-    await updateItemInFirestore(itemId, updatedFields);
+    await updateItemInDatabase(itemId, updatedFields);
   }
 
   async updateItem(itemId: string, updatedFields: Partial<CampusItem>): Promise<void> {
     const item = _items.find((i) => i.id === itemId);
-    const activeRole = await secureStorage.getItem('auth_active_role');
-    const isAdmin = activeRole === 'admin' || activeRole === 'super_admin';
+    const authState = await getActiveAuth();
+    const isAdmin = authState.isAdmin;
 
     // Mahasiswa TIDAK BOLEH mengedit data barang temuan
     if (item?.type === 'found' && !isAdmin) {
       throw new Error('Akses ditolak: Mahasiswa tidak diizinkan mengubah informasi barang temuan.');
     }
 
-    // Pastikan jika ada gambar baru, bukan merupakan file://
+    // Pastikan jika ada gambar baru, bukan merupakan file:// atau content:// lokal tanpa diunggah terlebih dahulu
     if (updatedFields.image && (updatedFields.image.startsWith('file://') || updatedFields.image.startsWith('content://'))) {
-      throw new Error('Format gambar tidak valid. Gambar harus diunggah ke Firebase Storage terlebih dahulu.');
+      throw new Error('Format gambar tidak valid. Gambar harus diunggah terlebih dahulu.');
     }
 
     const extra: Partial<CampusItem> = {};
     if (updatedFields.status) {
       extra.statusColor = STATUS_COLORS[updatedFields.status]?.text || '#334155';
     }
-    await updateItemInFirestore(itemId, { ...updatedFields, ...extra });
+    await updateItemInDatabase(itemId, { ...updatedFields, ...extra });
   }
 
   async deleteItem(itemId: string): Promise<void> {
     const item = _items.find((i) => i.id === itemId);
-    const activeRole = await secureStorage.getItem('auth_active_role');
-    const activeUser = await secureStorage.getObject<User>('auth_active_user');
-    const isAdmin = activeRole === 'admin' || activeRole === 'super_admin';
+    const authState = await getActiveAuth();
+    const isAdmin = authState.isAdmin;
+    const activeUser = authState.user;
 
     // Mahasiswa TIDAK BOLEH menghapus barang temuan
     if (item?.type === 'found' && !isAdmin) {
@@ -361,14 +404,14 @@ class CampusRepository {
       throw new Error('Akses ditolak: Anda hanya dapat menghapus laporan kehilangan milik Anda sendiri.');
     }
 
-    await deleteItemFromFirestore(itemId);
+    await deleteItemFromDatabase(itemId);
   }
 
-  // ─── KLAIM ────────────────────────────────────────────────────────────────
+  // â”€â”€â”€ KLAIM â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
    * PROSES KLAIM OLEH MAHASISWA (Prioritas 10 & 12)
-   * Disimpan ke Firestore koleksi `claims`.
+   * Disimpan ke Supabase koleksi `claims`.
    */
   async submitClaim(claimData: {
     itemId: string;
@@ -388,12 +431,12 @@ class CampusRepository {
         ...claimData,
         status: 'Menunggu Verifikasi',
         createdAt:
-          'Hari ini • ' +
+          'Hari ini â€¢ ' +
           new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) +
           ' WIB',
       };
 
-      const newClaim = await addClaimToFirestore(newClaimData);
+      const newClaim = await addClaimToDatabase(newClaimData);
 
       // Update status item menjadi 'Proses Klaim'
       await this.updateItemStatus(claimData.itemId, 'Proses Klaim');
@@ -426,7 +469,7 @@ class CampusRepository {
       }
 
       const newClaimStatus: ClaimStatus = approved ? 'Terverifikasi' : 'Klaim Ditolak';
-      await updateClaimInFirestore(claimId, {
+      await updateClaimInDatabase(claimId, {
         status: newClaimStatus,
         adminNotes:
           adminNotes ||
@@ -435,7 +478,7 @@ class CampusRepository {
             : 'Bukti identitas atau deskripsi barang tidak cocok.'),
         verifiedAt:
           new Date().toLocaleDateString('id-ID') +
-          ' • ' +
+          ' â€¢ ' +
           new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) +
           ' WIB',
         verifiedBy: adminName || 'Petugas Keamanan Kampus',
@@ -459,10 +502,10 @@ class CampusRepository {
     }
   }
 
-  // ─── SUBSCRIBE & REFRESH ──────────────────────────────────────────────────
+  // â”€â”€â”€ SUBSCRIBE & REFRESH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
-   * Subscribe ke perubahan realtime (via Firestore onSnapshot).
+   * Subscribe ke perubahan realtime (via Supabase onSnapshot).
    */
   subscribe(listener: (state: { items: CampusItem[]; claims: ClaimRequest[] }) => void) {
     _listeners.push(listener);
@@ -475,7 +518,7 @@ class CampusRepository {
 
   async refreshData() {
     try {
-      const fsItems = await getAllItemsFromFirestore();
+      const fsItems = await getAllItemsFromDatabase();
       if (fsItems && fsItems.length > 0) {
         _items = fsItems;
       }
@@ -483,7 +526,7 @@ class CampusRepository {
       console.warn('[CampusRepository] Fallback items cache:', e);
     }
     try {
-      const fsClaims = await getAllClaimsFromFirestore();
+      const fsClaims = await getAllClaimsFromDatabase();
       if (fsClaims && fsClaims.length > 0) {
         _claims = fsClaims;
       }

@@ -21,7 +21,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { CAMPUS_CATEGORIES, STATUS_COLORS } from '@/constants/initialData';
 import { useAuth } from '@/context/AuthContext';
 import { useCampusData } from '@/context/CampusDataContext';
-import { deletePhotoFromStorage } from '@/services/firebase/storageService';
+import { deletePhotoFromStorage, isSupabaseStorageUrl } from '@/services/supabase/storageService';
 import { CampusItem, ItemStatus } from '@/types';
 
 export default function AdminItemsScreen() {
@@ -318,7 +318,7 @@ export default function AdminItemsScreen() {
                 </View>
 
                 <Text style={styles.modalDesc}>
-                  Gunakan kamera perangkat untuk memotret kondisi fisik barang terkini atau pilih foto dari galeri. Foto otomatis disimpan ke Firebase Storage.
+                  Gunakan kamera perangkat untuk memotret kondisi fisik barang terkini atau pilih foto dari galeri. Foto otomatis disimpan ke Supabase Storage.
                 </Text>
 
                 <AdminCameraPicker
@@ -326,13 +326,8 @@ export default function AdminItemsScreen() {
                   onImageUploaded={async (newUrl) => {
                     const oldUrl = selectedItemForPhoto.image;
                     await updateItem(selectedItemForPhoto.id, { image: newUrl });
-                    // Hapus foto lama dari Storage setelah pembaruan Firestore berhasil
-                    if (
-                      oldUrl &&
-                      oldUrl !== newUrl &&
-                      (oldUrl.includes('firebasestorage.googleapis.com') ||
-                        oldUrl.includes('firebasestorage.app'))
-                    ) {
+                    // Hapus foto lama dari Storage setelah pembaruan database berhasil
+                    if (oldUrl && oldUrl !== newUrl && isSupabaseStorageUrl(oldUrl)) {
                       deletePhotoFromStorage(oldUrl).catch(() => {});
                     }
                     setSelectedItemForPhoto(null);
@@ -347,11 +342,7 @@ export default function AdminItemsScreen() {
                     await updateItem(selectedItemForPhoto.id, {
                       image: fallbackPlaceholder,
                     });
-                    if (
-                      oldUrl &&
-                      (oldUrl.includes('firebasestorage.googleapis.com') ||
-                        oldUrl.includes('firebasestorage.app'))
-                    ) {
+                    if (oldUrl && isSupabaseStorageUrl(oldUrl)) {
                       deletePhotoFromStorage(oldUrl).catch(() => {});
                     }
                     setSelectedItemForPhoto(null);

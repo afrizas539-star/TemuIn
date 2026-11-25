@@ -55,17 +55,6 @@ export default function StudentHomeScreen() {
     setLoading(isLoading);
   }, [isLoading]);
 
-  // Route Protection (Wajib Login & Role Student)
-  useEffect(() => {
-    if (!isLoadingAuth) {
-      if (!isAuthenticated || !user) {
-        router.replace('/login');
-      } else if (role === 'admin' || role === 'super_admin') {
-        router.replace('/admin/dashboard');
-      }
-    }
-  }, [isAuthenticated, role, isLoadingAuth, user]);
-
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Semua');
   const [filterType, setFilterType] = useState<'all' | 'lost' | 'found'>('all');
@@ -169,13 +158,6 @@ export default function StudentHomeScreen() {
         {/* Indikator Status Koneksi Compact di pojok kanan (Hanya pill, tanpa banner pemecah layout) */}
         <ConnectionStatus compact />
       </View>
-
-      {/* 2. Banner Notifikasi Offline / Server Tidak Tersedia (Full Width, Diluar Row) */}
-      {(connectionState === 'offline' || connectionState === 'server_unavailable') && (
-        <View style={styles.connectionAlertWrap}>
-          <ConnectionStatus compact={false} showOfflineNotice={true} />
-        </View>
-      )}
 
       {/* 3. Banner Utama TemuIn */}
       <View style={styles.bannerContainer}>

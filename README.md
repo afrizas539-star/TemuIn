@@ -1,56 +1,72 @@
-# Welcome to your Expo app 👋
+# TemuIn — Lost & Found Kampus Universitas Muhammadiyah Malang (UMM)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aplikasi mobile pelaporan dan pencarian barang hilang & temuan di lingkungan Universitas Muhammadiyah Malang, dibangun dengan **Expo SDK 58**, **React Native 19**, **TypeScript**, dan **Supabase Backend (Auth, Database, Storage, Realtime)**.
 
-## Get started
+---
 
-1. Install dependencies
+## 🚀 Panduan Setup Backend Supabase
 
+### 1. Konfigurasi Environment Variables
+Salin template `.env.example` menjadi `.env` di root project:
+```bash
+cp .env.example .env
+```
+Buka file `.env` dan masukkan kredensial project Supabase Anda:
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+```
+
+### 2. Menjalankan Skema Database di SQL Editor
+1. Buka Dashboard Supabase project Anda.
+2. Masuk ke menu **SQL Editor**.
+3. Buat query baru, salin seluruh isi file [schema.sql](file:///d:/KULIAHHH/SEMESTER%205/PEMROGRAMAN%20MOBILE/project_mobile/supabase/schema.sql) (atau file `supabase/schema.sql` di explorer project) dan jalankan (**Run**).
+4. Skema ini otomatis membuat:
+   - Tabel `profiles`, `items`, dan `claims` lengkap dengan relasi dan constraints.
+   - Trigger `handle_new_user` yang otomatis membuat profil saat Sign Up (role default `'student'`).
+   - Fungsi wewenang `is_admin()`.
+   - Konfigurasi **Row Level Security (RLS)** untuk keamanan data antar peran.
+   - Publikasi **Realtime** pada tabel `items` dan `claims`.
+   - Bucket Storage `item-photos` (publik) dan `id-cards` (privat untuk foto KTM).
+
+### 3. Pengaturan Autentikasi di Dashboard Supabase (Penting untuk Demo)
+1. Buka menu **Authentication** -> **Providers** -> **Email**.
+2. Nonaktifkan opsi **"Confirm email"** agar akun mahasiswa yang didaftarkan dapat langsung masuk tanpa verifikasi link email.
+3. Klik **Save**.
+
+### 4. Menyiapkan Akun Petugas / Admin Kampus
+1. Buka menu **Authentication** -> **Users** -> **Add user** -> **Create user**.
+2. Masukkan email dinas petugas, misalnya `petugas@umm.ac.id` dan kata sandi yang diinginkan.
+3. Setelah user dibuat, buka **SQL Editor** dan promosikan akun tersebut menjadi admin:
+```sql
+UPDATE public.profiles
+SET 
+  role = 'admin',
+  office_location = 'Posko Keamanan Pusat (Gedung Rektorat Lt. 1)'
+WHERE email = 'petugas@umm.ac.id';
+```
+
+---
+
+## 📱 Menjalankan Aplikasi
+
+1. Pasang dependensi project:
    ```bash
    npm install
    ```
-
-2. Start the app
-
+2. Jalankan Expo dev server:
    ```bash
    npx expo start
    ```
+3. Pindai QR code via **Expo Go** di Android/iOS, atau jalankan emulator:
+   - Android: tekan `a`
+   - iOS: tekan `i`
+   - Web: tekan `w`
 
-In the output, you'll find options to open the app in a
+---
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## 🔒 Rubrik Penilaian & Arsitektur
+1. **Secure Token Storage**: Sesi Supabase disimpan menggunakan `expo-secure-store` melalui custom storage adapter di `src/lib/supabase.ts` (dengan fallback `localStorage` di platform Web).
+2. **Supabase Auth Flow**: Mendukung Sign Up (`/register`), Sign In (`/login`), Sign Out, dan loading states terintegrasi.
+3. **Global AuthContext & Real-time Session**: `supabase.auth.onAuthStateChange` dengan cleanup subscription murni tanpa resiko deadlock query database.
+4. **Route Protection Guards**: Guard terpusat di `src/app/_layout.tsx` menggunakan `<Stack.Protected>` berdasarkan status autentikasi dan role pengguna (`student` vs `admin`).

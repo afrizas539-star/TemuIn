@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 
-import { uploadItemPhotoToStorage } from '@/services/firebase/storageService';
+import { deletePhotoFromStorage, uploadItemPhotoToStorage } from '@/services/supabase/storageService';
 
 interface AdminCameraPickerProps {
   imageUri?: string;
@@ -42,7 +42,7 @@ export const AdminCameraPicker: React.FC<AdminCameraPickerProps> = ({
   }, [imageUri]);
 
   /**
-   * Helper proses upload ke Firebase Storage dengan rollback aman jika gagal
+   * Helper proses upload ke Supabase Storage dengan rollback aman jika gagal
    */
   const processAndUpload = async (pickedUri: string) => {
     const previousImage = localPreview;
@@ -51,19 +51,19 @@ export const AdminCameraPicker: React.FC<AdminCameraPickerProps> = ({
       setUploadStatus('Menyiapkan foto...');
       setLocalPreview(pickedUri); // Tampilkan preview seketika
 
-      setUploadStatus('Mengunggah ke Firebase Storage...');
+      setUploadStatus('Mengunggah ke Supabase Storage...');
       const downloadUrl = await uploadItemPhotoToStorage(pickedUri, storageFolder);
 
       setLocalPreview(downloadUrl);
       onImageUploaded(downloadUrl);
-      Alert.alert('Sukses', 'Foto barang berhasil diunggah ke Firebase Storage.');
+      Alert.alert('Sukses', 'Foto barang berhasil diunggah ke Supabase Storage.');
     } catch (error: any) {
       console.error('Error saat upload foto:', error);
       // Jangan menghapus foto lama jika upload pengganti gagal
       setLocalPreview(previousImage);
       Alert.alert(
         'Upload Foto Gagal',
-        error?.message || 'Gagal mengunggah foto ke Firebase Storage. Silakan coba lagi.'
+        error?.message || 'Gagal mengunggah foto ke Supabase Storage. Silakan coba lagi.'
       );
     } finally {
       setIsUploading(false);
@@ -162,7 +162,7 @@ export const AdminCameraPicker: React.FC<AdminCameraPickerProps> = ({
             resizeMode="cover"
           />
 
-          {/* Loading Overlay saat sedang mengunggah ke Firebase Storage */}
+          {/* Loading Overlay saat sedang mengunggah ke Supabase Storage */}
           {isUploading && (
             <View style={styles.uploadingOverlay}>
               <ActivityIndicator size="large" color="#FFFFFF" />
@@ -170,7 +170,7 @@ export const AdminCameraPicker: React.FC<AdminCameraPickerProps> = ({
             </View>
           )}
 
-          {/* Status Badge jika foto sudah online di Firebase */}
+          {/* Status Badge jika foto sudah online di Cloud Storage */}
           {localPreview.startsWith('http') && !isUploading && (
             <View style={styles.cloudBadge}>
               <Ionicons name="cloud-done" size={14} color="#FFFFFF" />

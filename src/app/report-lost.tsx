@@ -26,7 +26,11 @@ import { AppRadius, Colors } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useCampusData } from '@/context/CampusDataContext';
 import { apiService } from '@/services/api/apiService';
-import { deletePhotoFromStorage, uploadItemPhotoToStorage } from '@/services/firebase/storageService';
+import {
+  deletePhotoFromStorage,
+  isSupabaseStorageUrl,
+  uploadItemPhotoToStorage,
+} from '@/services/supabase/storageService';
 import { CampusItem, CampusLocation, ItemType } from '@/types';
 
 /**
@@ -189,26 +193,25 @@ export default function StudentReportLostScreen() {
   const [uploadStatus, setUploadStatus] = useState('');
   const [apiError, setApiError] = useState<unknown>(null);
 
-  // Proses upload foto langsung ke Firebase Storage (folder items/lost)
+  // Proses upload foto langsung ke Supabase Storage (folder items/lost)
   const processAndUploadPhoto = async (localUri: string) => {
     const previousImage = imageUri;
     try {
       setIsUploadingPhoto(true);
-      setUploadStatus('Mengunggah foto ke Firebase Storage...');
+      setUploadStatus('Mengunggah foto ke Supabase Storage...');
       const downloadUrl = await uploadItemPhotoToStorage(localUri, 'items/lost');
       updateImageUri(downloadUrl);
-      // Hapus foto lama jika diganti dan foto lama tersimpan di Firebase Storage
+      // Hapus foto lama jika diganti dan foto lama tersimpan di Supabase Storage
       if (
         previousImage &&
         previousImage !== downloadUrl &&
-        (previousImage.includes('firebasestorage.googleapis.com') ||
-          previousImage.includes('firebasestorage.app'))
+        isSupabaseStorageUrl(previousImage)
       ) {
         deletePhotoFromStorage(previousImage).catch(() => {});
       }
-      Alert.alert('Sukses', 'Foto barang berhasil diunggah ke Firebase Storage.');
+      Alert.alert('Sukses', 'Foto barang berhasil diunggah ke Supabase Storage.');
     } catch (err: any) {
-      Alert.alert('Upload Gagal', err?.message || 'Gagal mengunggah foto ke Firebase Storage.');
+      Alert.alert('Upload Gagal', err?.message || 'Gagal mengunggah foto ke Supabase Storage.');
     } finally {
       setIsUploadingPhoto(false);
       setUploadStatus('');
@@ -281,7 +284,7 @@ export default function StudentReportLostScreen() {
     }
   }, [params]);
 
-  // Memotret langsung menggunakan kamera perangkat dengan upload otomatis ke Firebase Storage
+  // Memotret langsung menggunakan kamera perangkat dengan upload otomatis ke Supabase Storage
   const handleDirectCamera = async () => {
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -311,7 +314,7 @@ export default function StudentReportLostScreen() {
     if (isUploadingPhoto) {
       Alert.alert(
         'Upload Foto Sedang Berjalan',
-        'Mohon tunggu hingga proses unggah foto ke Firebase Storage selesai.'
+        'Mohon tunggu hingga proses unggah foto ke Supabase Storage selesai.'
       );
       return;
     }
@@ -360,14 +363,14 @@ export default function StudentReportLostScreen() {
           .then((serverItem) => ({ serverSuccess: true, item: serverItem }))
           .catch((apiErr) => {
             console.warn(
-              '[ReportLost] Server REST API backend belum terjangkau, menyimpan laporan ke Firestore/lokal:',
+              '[ReportLost] Server REST API backend belum terjangkau, menyimpan laporan ke Supabase database:',
               apiErr.message
             );
             return { serverSuccess: false, item: null, error: apiErr };
           });
       })
       .then((apiResult) => {
-        // Simpan ke Firestore via CampusDataContext (Hanya Laporan Kehilangan)
+        // Simpan ke Supabase via CampusDataContext (Hanya Laporan Kehilangan)
         return reportLostItem({
           title: title.trim(),
           category,
@@ -652,7 +655,7 @@ export default function StudentReportLostScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Dokumentasi Foto Barang (Jika Tersedia)</Text>
             <Text style={{ fontSize: 11, color: '#64748B', marginBottom: 8 }}>
-              Foto diunggah langsung ke Firebase Storage agar dapat dilihat oleh pengguna di HP lain.
+              Foto diunggah langsung ke Supabase Storage agar dapat dilihat oleh pengguna di HP lain.
             </Text>
 
             {/* Tombol Ambil Foto Kamera */}
@@ -670,11 +673,7 @@ export default function StudentReportLostScreen() {
               imageUri={imageUri}
               onImageSelected={processAndUploadPhoto}
               onImageRemoved={() => {
-                if (
-                  imageUri &&
-                  (imageUri.includes('firebasestorage.googleapis.com') ||
-                    imageUri.includes('firebasestorage.app'))
-                ) {
+                if (imageUri && isSupabaseStorageUrl(imageUri)) {
                   deletePhotoFromStorage(imageUri).catch(() => {});
                 }
                 updateImageUri('');
@@ -683,7 +682,7 @@ export default function StudentReportLostScreen() {
               subtitle="Pilih foto barang jika Anda pernah memfotonya"
             />
 
-            {/* Loading Indicator saat proses upload ke Firebase Storage sedang berlangsung */}
+            {/* Loading Indicator saat proses upload ke Supabase Storage sedang berlangsung */}
             {isUploadingPhoto && (
               <View style={styles.uploadingInlineBox}>
                 <ActivityIndicator size="small" color="#0266B3" />

@@ -79,14 +79,14 @@ export const CampusDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
 
   useEffect(() => {
-    // Subscribe ke Firestore realtime via campusRepository
+    // Subscribe ke Supabase realtime via campusRepository
     const unsubscribe = campusRepository.subscribe((state) => {
       setItems(state.items);
       setClaims(state.claims);
       setIsLoading(false);
     });
 
-    // Jalankan fetch awal dari Firestore
+    // Jalankan fetch awal dari Supabase
     campusRepository.refreshData().finally(() => {
       setIsLoading(false);
     });

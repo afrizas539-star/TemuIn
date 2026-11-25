@@ -22,7 +22,7 @@ import { InteractiveCampusMapModal } from '@/components/InteractiveCampusMapModa
 import { CAMPUS_CATEGORIES } from '@/constants/initialData';
 import { useAuth } from '@/context/AuthContext';
 import { useCampusData } from '@/context/CampusDataContext';
-import { deletePhotoFromStorage } from '@/services/firebase/storageService';
+import { deletePhotoFromStorage, isSupabaseStorageUrl } from '@/services/supabase/storageService';
 import { CampusLocation, ItemType } from '@/types';
 
 export default function AdminCreateReportScreen() {
@@ -338,18 +338,14 @@ export default function AdminCreateReportScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Dokumentasi Foto Barang Temuan</Text>
             <Text style={styles.fieldHint}>
-              Ambil foto fisik barang langsung dengan kamera HP petugas atau pilih dari galeri untuk diunggah ke Firebase Storage.
+              Ambil foto fisik barang langsung dengan kamera HP petugas atau pilih dari galeri untuk diunggah ke Supabase Storage.
             </Text>
 
             <AdminCameraPicker
               imageUri={imageUri}
               onImageUploaded={(downloadUrl) => setImageUri(downloadUrl)}
               onImageRemoved={() => {
-                if (
-                  imageUri &&
-                  (imageUri.includes('firebasestorage.googleapis.com') ||
-                    imageUri.includes('firebasestorage.app'))
-                ) {
+                if (imageUri && isSupabaseStorageUrl(imageUri)) {
                   deletePhotoFromStorage(imageUri).catch(() => {});
                 }
                 setImageUri('');

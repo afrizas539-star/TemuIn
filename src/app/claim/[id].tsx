@@ -22,7 +22,11 @@ import { SafeImage } from '@/components/SafeImage';
 import { useAuth } from '@/context/AuthContext';
 import { useCampusData } from '@/context/CampusDataContext';
 import { AppApiError } from '@/services/api/httpErrors';
-import { deletePhotoFromStorage, uploadItemPhotoToStorage } from '@/services/firebase/storageService';
+import {
+  deletePhotoFromStorage,
+  isSupabaseStorageUrl,
+  uploadItemPhotoToStorage,
+} from '@/services/supabase/storageService';
 
 export default function ClaimItemScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -51,18 +55,14 @@ export default function ClaimItemScreen() {
     }
   }, [isAuthenticated, isLoadingAuth]);
 
-  // Upload KTM/KTP langsung ke Firebase Storage (folder id_cards)
+  // Upload KTM/KTP langsung ke Supabase Storage (bucket id-cards)
   const processAndUploadKtm = async (localUri: string) => {
     const oldUri = idCardImage;
     try {
       setIsUploadingKtm(true);
       const downloadUrl = await uploadItemPhotoToStorage(localUri, 'id_cards');
       setIdCardImage(downloadUrl);
-      if (
-        oldUri &&
-        oldUri !== downloadUrl &&
-        (oldUri.includes('firebasestorage.googleapis.com') || oldUri.includes('firebasestorage.app'))
-      ) {
+      if (oldUri && oldUri !== downloadUrl && isSupabaseStorageUrl(oldUri)) {
         deletePhotoFromStorage(oldUri).catch(() => {});
       }
       Alert.alert('Sukses', 'Foto KTM/KTP berhasil diunggah.');
@@ -99,7 +99,7 @@ export default function ClaimItemScreen() {
     if (isUploadingKtm) {
       Alert.alert(
         'Upload KTM Sedang Berjalan',
-        'Mohon tunggu hingga proses unggah foto KTM ke Firebase Storage selesai.'
+        'Mohon tunggu hingga proses unggah foto KTM ke Supabase Storage selesai.'
       );
       return;
     }
@@ -335,11 +335,7 @@ export default function ClaimItemScreen() {
               imageUri={idCardImage}
               onImageSelected={processAndUploadKtm}
               onImageRemoved={() => {
-                if (
-                  idCardImage &&
-                  (idCardImage.includes('firebasestorage.googleapis.com') ||
-                    idCardImage.includes('firebasestorage.app'))
-                ) {
+                if (idCardImage && isSupabaseStorageUrl(idCardImage)) {
                   deletePhotoFromStorage(idCardImage).catch(() => {});
                 }
                 setIdCardImage('');
@@ -354,7 +350,7 @@ export default function ClaimItemScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, backgroundColor: '#EFF6FF', padding: 8, borderRadius: 8 }}>
                 <ActivityIndicator size="small" color="#0266B3" />
                 <Text style={{ fontSize: 12, color: '#0266B3', fontWeight: '600' }}>
-                  Mengunggah foto KTM ke Firebase Storage...
+                  Mengunggah foto KTM ke Supabase Storage...
                 </Text>
               </View>
             )}

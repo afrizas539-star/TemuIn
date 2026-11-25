@@ -1,9 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,22 +20,8 @@ import { useCampusData } from "@/context/CampusDataContext";
 export default function AdminDashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { isAdminAuthenticated, role, adminProfile, isLoadingAuth } = useAuth();
+  const { isAdminAuthenticated, adminProfile, isLoadingAuth } = useAuth();
   const { items, claims } = useCampusData();
-
-  // Route protection
-  useEffect(() => {
-    if (!isLoadingAuth) {
-      if (!isAdminAuthenticated) {
-        if (role === 'student') {
-          Alert.alert('Akses Ditolak', 'Mahasiswa tidak memiliki izin mengakses panel pengelola kampus.');
-          router.replace('/home');
-        } else {
-          router.replace('/login');
-        }
-      }
-    }
-  }, [isAdminAuthenticated, role, isLoadingAuth]);
 
   // Statistics calculation
   const totalLost = items.filter((i) => i.type === "lost").length;
@@ -79,11 +63,6 @@ export default function AdminDashboardScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Indikator Status Koneksi Online/Offline Backend */}
-        <View style={styles.connectionStatusWrap}>
-          <ConnectionStatus showOfflineNotice={true} />
-        </View>
-
         {/* Admin Announcement Banner */}
         <View style={styles.adminBanner}>
           <View style={styles.bannerHeader}>
